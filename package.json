@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "db:push": "cross-env DATABASE_URL=$DIRECT_URL npx prisma db push"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.1",
@@ -22,6 +24,7 @@
     "@types/node": "^20.19.25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.5",
