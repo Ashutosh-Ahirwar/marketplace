@@ -1,0 +1,45 @@
+{
+  "miniapp": {
+    "name": "MiniApp Mart",
+    "version": "1",
+    "iconUrl": "https://your-domain.com/icon.png",
+    "homeUrl": "https://your-domain.com",
+    "imageUrl": "https://your-domain.com/og-image.png",
+    "buttonTitle": "Explore Market",
+    "splashImageUrl": "https://your-domain.com/splash-icon.png",
+    "splashBackgroundColor": "#f8fafc",
+    "subtitle": "Discover & List Farcaster Apps",
+    "description": "The decentralized app store for Farcaster. Discover trending Mini Apps, list your own project for $5 USDC, and rent featured slots to boost visibility.",
+    "primaryCategory": "developer-tools",
+    "screenshotUrls": [
+      "https://your-domain.com/screenshots/home.png",
+      "https://your-domain.com/screenshots/search.png",
+      "https://your-domain.com/screenshots/profile.png"
+    ],
+    "heroImageUrl": "https://your-domain.com/hero.png",
+    "tags": [
+      "marketplace",
+      "store",
+      "discovery",
+      "base",
+      "developer"
+    ],
+    "tagline": "The community-driven Mini App store",
+    "ogTitle": "MiniApp Mart",
+    "ogDescription": "List your Farcaster Mini App for just $5 USDC. Discover what's trending on Base.",
+    "ogImageUrl": "https://your-domain.com/og-image.png",
+    "requiredChains": [
+      "eip155:8453"
+    ],
+    "requiredCapabilities": [
+      "actions.sendToken",
+      "actions.signIn",
+      "actions.openMiniApp"
+    ]
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEyMzQ1LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4... (GENERATE THIS)",
+    "payload": "eyJkb21haW4iOiJ5b3VyLWRvbWFpbi5jb20ifQ== (GENERATE THIS)",
+    "signature": "MHgy... (GENERATE THIS ON DEVELOPER PORTAL)"
+  }
+}

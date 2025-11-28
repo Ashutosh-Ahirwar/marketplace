@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // Connection Pooler (Port 6543)
+  directUrl = env("DIRECT_URL")   // Direct Connection (Port 5432)
+}
+
+model User {
+  fid           Int           @id
+  username      String?
+  pfpUrl        String?
+  listings      MiniApp[]
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+}
+
+model MiniApp {
+  id             String        @id @default(cuid())
+  name           String
+  description    String
+  url            String        @unique
+  iconUrl        String
+  category       String
+  owner          User          @relation(fields: [ownerFid], references: [fid])
+  ownerFid       Int
+  isVerified     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  
+  // Analytics
+  uniqueViews    Int           @default(0)
+  clicks         Int           @default(0)
+  trendingScore  Float         @default(0)
+
+  // Featured Status
+  featuredSlot   FeaturedSlot?
+}
+
+model FeaturedSlot {
+  slotIndex Int      @id
+  app       MiniApp  @relation(fields: [appId], references: [id], onDelete: Cascade)
+  appId     String   @unique
+  expiresAt DateTime 
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  txHash      String   @unique
+  user        User     @relation(fields: [userFid], references: [fid])
+  userFid     Int
+  type        String
+  amount      String
+  description String
+  status      String
+  timestamp   DateTime @default(now())
+}

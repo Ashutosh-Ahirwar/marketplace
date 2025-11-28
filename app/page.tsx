@@ -1,65 +1,134 @@
-import Image from "next/image";
+import FeaturedCarousel from "@/components/FeaturedCarousel";
+import OpenAppButton from "@/components/OpenAppButton";
+import AddToHomeButton from "@/components/AddToHomeButton"; 
+import { MiniApp, APP_CATEGORIES } from "@/types"; 
+import { prisma } from "@/lib/prisma"; 
 
-export default function Home() {
+export const dynamic = 'force-dynamic'; 
+
+const formatCategory = (cat: string) => cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+const toMiniApp = (data: any): MiniApp => ({
+  ...data,
+  category: data.category as any,
+  createdAt: data.createdAt.getTime(),
+  authorUsername: data.owner?.username || "Unknown"
+});
+
+export default async function Home() {
+  // 1. Fetch Featured Slots
+  const activeSlots = await prisma.featuredSlot.findMany({
+    where: { expiresAt: { gt: new Date() } },
+    include: { app: { include: { owner: true } } },
+    orderBy: { slotIndex: 'asc' }
+  });
+
+  const featuredSlots: (MiniApp | null)[] = Array(6).fill(null);
+  activeSlots.forEach((slot: any) => {
+    featuredSlots[slot.slotIndex] = toMiniApp(slot.app);
+  });
+
+  // 2. Fetch Apps
+  const apps = await prisma.miniApp.findMany({
+    take: 200, 
+    orderBy: { trendingScore: 'desc' }, 
+    include: { owner: true }
+  });
+
+  const categoryMap: Record<string, MiniApp[]> = {};
+  APP_CATEGORIES.forEach(cat => { categoryMap[cat] = []; });
+  
+  apps.forEach((dbApp: any) => {
+    const app = toMiniApp(dbApp);
+    if (categoryMap[app.category]) {
+      categoryMap[app.category].push(app);
+    }
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="max-w-md mx-auto min-h-screen bg-violet-50">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-violet-50/90 backdrop-blur-sm px-4 py-4 mb-2 flex items-center justify-between border-b border-violet-100/50">
+        
+        {/* Creative Logo: Mini[Rocket]ppMart */}
+        <h1 className="text-2xl font-extrabold tracking-tight text-violet-950 flex items-center">
+          Mini
+          {/* Rocket acting as 'A' */}
+          <span className="relative w-7 h-7 mx-[1px] flex items-center justify-center transform -rotate-12 translate-y-[1px]">
+             {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/rocket-icon.png" 
+              alt="A" 
+              className="w-full h-full object-contain drop-shadow-sm" 
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </span>
+          pp<span className="text-violet-600">Mart</span>
+        </h1>
+        
+        <div className="flex items-center gap-3">
+          {/* Bookmark Button Only - Profile is now in bottom nav */}
+          <AddToHomeButton />
         </div>
-      </main>
-    </div>
+      </div>
+      
+      <div className="px-4 pb-24 space-y-8">
+        <FeaturedCarousel featuredApps={featuredSlots} />
+        
+        {Object.entries(categoryMap).map(([category, apps]) => {
+          const displayItems = apps.length > 0 ? apps.slice(0, 8) : [null, null]; 
+
+          return (
+            <section key={category}>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-violet-900 tracking-tight capitalize">{formatCategory(category)}</h2>
+                  {apps.length > 0 && <span className="text-[10px] bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full font-bold">Top 8</span>}
+                </div>
+                {apps.length > 0 && (
+                  <a href={`/search?cat=${category}`} className="text-[11px] font-bold text-violet-600 hover:bg-violet-100 px-3 py-1.5 rounded-full transition-colors">
+                    View All
+                  </a>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {displayItems.map((app, i) => (
+                  app ? (
+                    // REAL APP CARD
+                    <div key={app.id} className="group bg-white p-4 rounded-2xl shadow-sm border border-violet-100 flex flex-col relative overflow-hidden hover:shadow-md hover:border-violet-200 transition-all">
+                        <div className="absolute top-0 left-0 bg-violet-50 text-violet-400 text-[9px] font-bold px-2 py-1 rounded-br-lg">
+                          #{i + 1}
+                        </div>
+
+                        {app.isVerified && (
+                          <div className="absolute top-3 right-3 text-blue-500 bg-blue-50 p-1 rounded-full">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                          </div>
+                        )}
+                        <div className="flex flex-col items-center text-center mb-3 mt-1">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl shadow-sm mb-3 object-cover group-hover:scale-105 transition-transform duration-300" />
+                          <h3 className="font-bold text-sm text-violet-900 truncate w-full">{app.name}</h3>
+                          <span className="text-[10px] font-medium text-violet-400">@{app.authorUsername}</span>
+                        </div>
+                        <div className="mt-auto pt-2 w-full"><OpenAppButton url={app.url} appId={app.id} /></div>
+                    </div>
+                  ) : (
+                    // PLACEHOLDER CARD
+                    <div key={`placeholder-${i}`} className="bg-violet-50/50 border-2 border-dashed border-violet-200/50 p-4 rounded-2xl flex flex-col items-center justify-center text-center h-full min-h-[180px] opacity-70 hover:opacity-100 transition-opacity">
+                       <span className="text-2xl mb-2 grayscale opacity-50">✨</span>
+                       <p className="text-xs font-bold text-violet-300">Coming Soon</p>
+                       <a href="/list" className="mt-3 text-[10px] bg-white border border-violet-100 text-violet-500 font-bold px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-colors">
+                         List App
+                       </a>
+                    </div>
+                  )
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </main>
   );
 }
