@@ -53,12 +53,9 @@ export default function ProfilePage() {
 
   const initiateDelete = (appId: string) => {
     if (confirmingId === appId) {
-      // User clicked twice, proceed to delete
       handleDelete(appId);
     } else {
-      // First click, ask for confirmation
       setConfirmingId(appId);
-      // Auto-reset confirmation after 3 seconds if not clicked
       setTimeout(() => setConfirmingId(null), 3000);
     }
   };
@@ -66,19 +63,24 @@ export default function ProfilePage() {
   const handleDelete = async (appId: string) => {
     if (!user) return;
     
-    // Removed window.confirm, logic is now handled by UI button state
     setConfirmingId(null);
     setIsDeleting(appId);
 
     try {
-      // 2. Generate Signature for Security
       const nonce = `delete-${appId}-${Date.now()}`;
-      const signResult = await sdk.actions.signIn({ nonce });
+      
+      // FIX: Add Timeout to prevent "Stuck" state if SDK hangs
+      // This waits for EITHER the sign-in result OR a 15-second timer
+      const signPromise = sdk.actions.signIn({ nonce });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Signature request timed out")), 15000)
+      );
+
+      // @ts-ignore - Promise.race types can be tricky with SDKs
+      const signResult: any = await Promise.race([signPromise, timeoutPromise]);
 
       if (!signResult.signature || !signResult.message) {
-        showToast("Signature failed. Cannot verify ownership.", 'error');
-        setIsDeleting(null);
-        return;
+        throw new Error("Signature failed or was rejected");
       }
 
       // 3. Send Authenticated Request
@@ -104,10 +106,11 @@ export default function ProfilePage() {
       } else {
         showToast(`Failed to delete: ${data.error || 'Unknown error'}`, 'error');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Error deleting app.", 'error');
+      showToast(e.message || "Error deleting app.", 'error');
     } finally {
+      // CRITICAL: Always reset loading state
       setIsDeleting(null);
     }
   };

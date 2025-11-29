@@ -6,11 +6,12 @@ export async function POST(req: Request) {
   try {
     const { appId, fid, auth } = await req.json();
 
-    // 0. Security Check
+    // 0. Security Check: Validate Signature
     if (!auth || !auth.signature) {
       return NextResponse.json({ error: "Unauthorized: Missing signature" }, { status: 401 });
     }
     
+    // Verify user identity
     await verifyUserAuth({ 
       fid: fid, 
       signature: auth.signature, 
