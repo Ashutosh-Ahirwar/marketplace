@@ -10,6 +10,7 @@ export async function POST(req: Request) {
     const { txHash, appData, user, auth } = body; 
 
     // 0. Security Check: Validate Quick Auth Token
+    // Changed from checking auth.signature to auth.token
     if (!auth || !auth.token) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     // We verify the transaction exists and has the correct value.
     // Note: With Quick Auth (JWT), we don't instantly have the user's wallet address to verify sender.
     // We trust the FID authentication + valid transaction hash for this flow.
+    // Removed the third argument (expectedSender) as verifyUserAuth returns boolean now.
     await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc);
 
     // 2. Check if Tx Hash already used
