@@ -1,11 +1,11 @@
-// ... (imports same as previous) ...
+'use client';
+
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { APP_CATEGORIES, AppCategory, MiniApp } from '@/types';
 import OpenAppButton from '@/components/OpenAppButton';
 
 function SearchContent() {
-  // ... (State & Fetch logic same as previous) ...
   const searchParams = useSearchParams();
   const initialCat = searchParams.get('cat');
   const [apps, setApps] = useState<MiniApp[]>([]);
