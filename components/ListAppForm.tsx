@@ -13,7 +13,7 @@ export default function ListAppForm() {
   const [iconUrl, setIconUrl] = useState('');
   const [appName, setAppName] = useState('');
   
-  // Missing state fixed here:
+  // Input Constraints
   const [descCount, setDescCount] = useState(0);
 
   // Recovery State
@@ -38,7 +38,6 @@ export default function ListAppForm() {
 
   const handleConnect = async () => {
     try {
-      // We don't sign here, we sign on submission to ensure freshness
       const ctx = await sdk.context;
       if (ctx?.user?.username) {
         setUser({ fid: ctx.user.fid, username: ctx.user.username });
@@ -54,11 +53,17 @@ export default function ListAppForm() {
       if (!user) throw new Error("User context missing");
 
       // 1. GENERATE SIGNATURE
-      const nonce = `list-app-${Date.now()}`;
-      const signResult = await sdk.actions.signIn({ nonce });
+      // Updated to use Quick Auth token for consistency and better UX
+      // We add a timeout here too just in case
+      const tokenPromise = sdk.quickAuth.getToken();
+      const timeoutPromise = new Promise<{token: string}>((_, reject) => 
+        setTimeout(() => reject(new Error("Auth request timed out")), 10000)
+      );
+
+      const { token } = await Promise.race([tokenPromise, timeoutPromise]);
       
-      if (!signResult.signature || !signResult.message) {
-        throw new Error("Failed to sign request");
+      if (!token) {
+        throw new Error("Failed to authenticate. Please try again.");
       }
 
       const appData = {
@@ -79,9 +84,7 @@ export default function ListAppForm() {
           user,
           // 2. SEND AUTH
           auth: {
-            signature: signResult.signature,
-            message: signResult.message,
-            nonce: nonce 
+            token: token
           }
         })
       });
@@ -94,8 +97,10 @@ export default function ListAppForm() {
       
     } catch (e: any) {
       console.error("Listing failed", e);
-      setPendingTxHash(txHash);
-      setErrorState(`Listing failed: ${e.message}. Please click 'Retry Submission'.`);
+      setPendingTxHash(txHash); // Save hash so they can retry without paying again
+      setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
+    } finally {
+        setLoading(false); 
     }
   };
 
@@ -105,7 +110,6 @@ export default function ListAppForm() {
 
     const url = formData.get('url') as string;
     
-    // VALIDATION: Strict check for Farcaster Universal Links
     if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
       setErrorState("Invalid Link. Please use the official Farcaster Universal Link.");
       setLoading(false);
@@ -119,26 +123,41 @@ export default function ListAppForm() {
     }
 
     try {
+      // If we already have a hash from a previous failed attempt, skip payment
       if (pendingTxHash) {
         await processListing(pendingTxHash, formData);
         return;
       }
 
+      // 1. Request Payment
       const result = await sdk.actions.sendToken({
         token: MARKETPLACE_CONFIG.tokens.baseUsdc,
         amount: MARKETPLACE_CONFIG.prices.listingUsdc,
         recipientAddress: MARKETPLACE_CONFIG.recipientAddress, 
       });
 
+      // 2. Handle Result
       if (result.success) {
+        // Payment Succeeded -> Proceed to Backend
         await processListing(result.send.transaction, formData);
+      } else {
+          // Payment Failed or Cancelled
+          setLoading(false);
+          if (result.reason === 'rejected_by_user') {
+             // User cancelled, no error message needed
+             console.log("User cancelled payment");
+          } else {
+             // Genuine failure
+             setErrorState(`Transaction failed: ${result.error?.message || "Unknown error"}`);
+          }
       }
     } catch (e: any) {
-      if (!e.message?.includes("rejected")) {
-        setErrorState("Transaction failed.");
-      }
-    } finally {
+      console.error("Transaction Exception:", e);
       setLoading(false);
+      // Only show error if it wasn't a user rejection (sometimes throws instead of returning false)
+      if (!e.message?.toLowerCase().includes("rejected")) {
+        setErrorState("Transaction failed. Please try again.");
+      }
     }
   };
 
