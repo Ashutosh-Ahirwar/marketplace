@@ -46,22 +46,13 @@ export const metadata: Metadata = {
   description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
   openGraph: {
     title: "MiniApp Mart",
-    description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
-    // Per JSON 'ogImageUrl' -> "hero.png"
-    images: [`${APP_URL}/hero.png`],
+    description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub."
   },
   other: {
+    // "fc:frame" is used for backward compatibility
+    "fc:frame": JSON.stringify(miniAppEmbed),
+    // "fc:miniapp" is the modern standard
     "fc:miniapp": JSON.stringify(miniAppEmbed),
-    "fc:frame": JSON.stringify({
-      ...miniAppEmbed,
-      button: {
-        ...miniAppEmbed.button,
-        action: {
-          ...miniAppEmbed.button.action,
-          type: "launch_frame", // Legacy compatibility
-        },
-      },
-    }),
   },
 };
 
