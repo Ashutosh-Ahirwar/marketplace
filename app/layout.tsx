@@ -21,7 +21,7 @@ const APP_URL = "https://marketplace-lovat-zeta.vercel.app";
 const miniAppEmbed = {
   version: "1",
   // Per JSON 'imageUrl' -> "icon.png"
-  imageUrl: `${APP_URL}/icon.png`,
+  imageUrl: `${APP_URL}/hero.png`,
   button: {
     // Per JSON 'buttonTitle' -> "Explore Apps"
     title: "Explore Apps",
