@@ -1,6 +1,7 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
+// Use relative path for reliability
 import { Transaction, MiniApp } from '@/types'
 import OpenAppButton from '@/components/OpenAppButton'
 
@@ -11,6 +12,16 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'listings' | 'history'>('listings');
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  // Custom UI States to replace native alerts/confirms
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+
+  // Helper to show custom notifications
+  const showToast = (msg: string, type: 'success' | 'error') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const refreshData = async (fid: number) => {
     try {
@@ -40,12 +51,23 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
+  const initiateDelete = (appId: string) => {
+    if (confirmingId === appId) {
+      // User clicked twice, proceed to delete
+      handleDelete(appId);
+    } else {
+      // First click, ask for confirmation
+      setConfirmingId(appId);
+      // Auto-reset confirmation after 3 seconds if not clicked
+      setTimeout(() => setConfirmingId(null), 3000);
+    }
+  };
+
   const handleDelete = async (appId: string) => {
     if (!user) return;
     
-    // 1. Confirm Intent
-    if (!confirm("Are you sure you want to delete this listing? This cannot be undone.")) return;
-
+    // Removed window.confirm, logic is now handled by UI button state
+    setConfirmingId(null);
     setIsDeleting(appId);
 
     try {
@@ -54,7 +76,7 @@ export default function ProfilePage() {
       const signResult = await sdk.actions.signIn({ nonce });
 
       if (!signResult.signature || !signResult.message) {
-        alert("Signature failed. Cannot verify ownership.");
+        showToast("Signature failed. Cannot verify ownership.", 'error');
         setIsDeleting(null);
         return;
       }
@@ -69,7 +91,7 @@ export default function ProfilePage() {
           auth: {
             signature: signResult.signature,
             message: signResult.message,
-            nonce: nonce // FIXED: Use the local 'nonce' variable
+            nonce: nonce 
           }
         })
       });
@@ -77,14 +99,14 @@ export default function ProfilePage() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("Listing deleted successfully.");
+        showToast("Listing deleted successfully.", 'success');
         await refreshData(user.fid);
       } else {
-        alert(`Failed to delete: ${data.error || 'Unknown error'}`);
+        showToast(`Failed to delete: ${data.error || 'Unknown error'}`, 'error');
       }
     } catch (e) {
       console.error(e);
-      alert("Error deleting app.");
+      showToast("Error deleting app.", 'error');
     } finally {
       setIsDeleting(null);
     }
@@ -94,7 +116,16 @@ export default function ProfilePage() {
   if (!user) return <div className="p-8 text-center">Please connect your Farcaster account.</div>;
 
   return (
-    <main className="max-w-md mx-auto min-h-screen bg-slate-50 pb-24">
+    <main className="max-w-md mx-auto min-h-screen bg-slate-50 pb-24 relative">
+      {/* Toast Notification UI */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full shadow-xl text-xs font-bold animate-fade-in-down transition-all border border-white/20 backdrop-blur-md ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+            {toast.msg}
+        </div>
+      )}
+
       <div className="bg-white p-6 border-b border-gray-100 mb-6">
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -134,11 +165,19 @@ export default function ProfilePage() {
                        <OpenAppButton url={app.url} appId={app.id} />
                     </div>
                     <button 
-                      onClick={() => handleDelete(app.id)}
+                      onClick={() => initiateDelete(app.id)}
                       disabled={isDeleting === app.id}
-                      className="flex-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 font-bold py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                      className={`flex-1 text-xs font-bold py-2.5 rounded-xl transition-all disabled:opacity-50 ${
+                        confirmingId === app.id 
+                          ? 'bg-red-600 text-white shadow-red-500/30 shadow-lg' 
+                          : 'text-red-600 bg-red-50 hover:bg-red-100'
+                      }`}
                     >
-                      {isDeleting === app.id ? "Verifying..." : "Delete Listing"}
+                      {isDeleting === app.id 
+                        ? "Verifying..." 
+                        : confirmingId === app.id 
+                          ? "Click to Confirm" 
+                          : "Delete Listing"}
                     </button>
                   </div>
                 </div>

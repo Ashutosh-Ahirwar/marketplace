@@ -5,51 +5,95 @@ import { useSearchParams } from 'next/navigation';
 import { APP_CATEGORIES, AppCategory, MiniApp } from '@/types';
 import OpenAppButton from '@/components/OpenAppButton';
 
+// Debounce hook to prevent API spam while typing
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const initialCat = searchParams.get('cat');
+  
   const [apps, setApps] = useState<MiniApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    const fetchApps = async () => {
-      try {
-        const res = await fetch('/api/apps');
-        const data = await res.json();
-        if (data.apps) setApps(data.apps);
-      } catch (e) {
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchApps();
-  }, []);
+  // Debounce search input (wait 500ms after typing stops)
+  const debouncedSearch = useDebounce(searchQuery, 500);
 
+  // Sync URL params with state on load
   useEffect(() => {
     if (initialCat && APP_CATEGORIES.includes(initialCat as AppCategory)) {
       setSelectedCategory(initialCat);
     }
   }, [initialCat]);
 
-  // Logic: Is the user actively searching or filtering?
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedCategory]);
+
+  // Fetch Data whenever filters or page changes
+  useEffect(() => {
+    const fetchApps = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (debouncedSearch) params.set('q', debouncedSearch);
+        if (selectedCategory && selectedCategory !== 'all') params.set('cat', selectedCategory);
+        
+        // Add Pagination Params
+        params.set('page', page.toString());
+        params.set('limit', '20'); // Fetch 20 items per page
+        
+        const res = await fetch(`/api/apps?${params.toString()}`);
+        const data = await res.json();
+        
+        if (data.apps) {
+          setApps(data.apps);
+          setTotalPages(data.pagination?.totalPages || 1);
+        }
+      } catch (e) {
+        console.error("Search failed", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchApps();
+  }, [debouncedSearch, selectedCategory, page]);
+
   const isSearching = searchQuery.length > 0;
   const isFiltering = selectedCategory !== 'all';
-  const showDiscoveryMode = !isSearching && !isFiltering;
+  
+  // Only show "Discovery Mode" (Carousels) on Page 1 with no filters
+  const showDiscoveryMode = !isSearching && !isFiltering && page === 1;
 
-  // Filter Logic
-  const filteredApps = apps.filter(app => {
-      const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            app.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || app.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
+  // Since we are paging server-side, 'apps' contains only the current page's data
+  const filteredApps = apps; 
 
+  // Discovery mode helpers (for Page 1 only)
+  // In a real production app, you might want separate API calls for "Top Trending" vs "New Arrivals" 
+  // to avoid relying on the first page of results, but for now, we derive from the initial fetch.
   const trendingApps = [...apps].sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0)).slice(0, 5);
   const newArrivals = [...apps].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
 
-  if (isLoading) return <div className="p-10 text-center text-gray-400">Loading Market...</div>;
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <main className="max-w-md mx-auto min-h-screen bg-violet-50">
@@ -88,11 +132,12 @@ function SearchContent() {
 
       <div className="px-4 pb-24 pt-4">
         
-        {/* MODE 1: DISCOVERY (Only show when NOT searching/filtering) */}
+        {/* MODE 1: DISCOVERY (Only show when NOT searching/filtering AND on Page 1) */}
         {showDiscoveryMode && (
           <>
             <section className="mb-8">
               <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">New Arrivals</h2></div>
+              {isLoading ? <div className="text-center text-xs text-gray-400">Loading...</div> : (
               <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-4 px-4">
                 {newArrivals.map((app) => (
                   <div key={app.id} className="min-w-[140px] w-[140px] bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center relative group">
@@ -102,6 +147,7 @@ function SearchContent() {
                   </div>
                 ))}
               </div>
+              )}
             </section>
             
             <section className="mb-8">
@@ -122,38 +168,53 @@ function SearchContent() {
           </>
         )}
 
-        {/* MODE 2: SEARCH RESULTS (Grid view used for everything else) */}
+        {/* MODE 2: SEARCH RESULTS (Grid View) */}
+        {(!showDiscoveryMode || isSearching || isFiltering || page > 1) && (
         <section className="mt-4">
-           {/* Section Title updates dynamically */}
-           {!showDiscoveryMode && (
-             <h2 className="text-lg font-bold text-slate-900 mb-4">
-               {isSearching ? `Results for "${searchQuery}"` : `${selectedCategory.replace('-', ' ')} Apps`}
-             </h2>
-           )}
+           <h2 className="text-lg font-bold text-slate-900 mb-4">
+             {isSearching ? `Results for "${searchQuery}"` : `${selectedCategory.replace('-', ' ')} Apps`}
+           </h2>
 
-           {filteredApps.length === 0 ? (
-             <div className="text-center text-gray-400 py-10 text-sm">No apps found matching your criteria.</div>
+           {isLoading ? (
+             <div className="text-center text-gray-400 py-10 text-sm">Searching...</div>
+           ) : filteredApps.length === 0 ? (
+             <div className="text-center text-gray-400 py-10 text-sm">No apps found.</div>
            ) : (
-             <div className="grid grid-cols-2 gap-4">
-              {/* If in Discovery Mode, we show filteredApps (which is everything) as a grid at the bottom? 
-                  NO, to reduce clutter, we ONLY show the grid if the user is searching/filtering. 
-                  However, if you want a "Browse All" at the bottom of Discovery, uncomment below.
-              */}
-              {(!showDiscoveryMode || true) && filteredApps.map(app => (
-                // We add a key condition: if showing discovery, don't show the same apps again unless we paginate. 
-                // For simplicity in this fix: If Discovery Mode is ON, we HIDE this grid to avoid duplicates.
-                // If Discovery Mode is OFF, we SHOW this grid.
-                (!showDiscoveryMode) && (
-                  <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-3"><img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" /></div>
-                    <h3 className="font-bold text-sm text-slate-900 mb-1 truncate">{app.name}</h3>
-                    <div className="mt-auto"><OpenAppButton url={app.url} appId={app.id} /></div>
+             <>
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  {filteredApps.map(app => (
+                      <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-3"><img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" /></div>
+                        <h3 className="font-bold text-sm text-slate-900 mb-1 truncate">{app.name}</h3>
+                        <div className="mt-auto"><OpenAppButton url={app.url} appId={app.id} /></div>
+                      </div>
+                  ))}
+                </div>
+
+                {/* PAGINATION CONTROLS */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-4 mb-8">
+                    <button 
+                      onClick={() => handlePageChange(page - 1)}
+                      disabled={page === 1}
+                      className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 disabled:opacity-50 hover:bg-gray-50 active:scale-95 transition-all"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs font-mono text-gray-400">Page {page} of {totalPages}</span>
+                    <button 
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={page === totalPages}
+                      className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 disabled:opacity-50 hover:bg-gray-50 active:scale-95 transition-all"
+                    >
+                      Next
+                    </button>
                   </div>
-                )
-              ))}
-            </div>
+                )}
+             </>
            )}
         </section>
+        )}
       </div>
     </main>
   );
