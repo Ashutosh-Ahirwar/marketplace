@@ -6,6 +6,9 @@ import { MARKETPLACE_CONFIG } from '@/lib/config'
 
 export default function ListAppForm() {
   const [loading, setLoading] = useState(false);
+  // NEW: Granular status to show user exactly what is happening
+  const [statusMessage, setStatusMessage] = useState<string>(""); 
+  
   const [user, setUser] = useState<{ fid: number; username: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
@@ -50,14 +53,19 @@ export default function ListAppForm() {
 
   const processListing = async (txHash: string, formData: FormData) => {
     try {
+      setStatusMessage("Verifying listing..."); // Feedback step 2
+      
       if (!user) throw new Error("User context missing");
 
       // 1. GENERATE SIGNATURE
-      // Updated to use Quick Auth token for consistency and better UX
-      // Removed the explicit timeout to rely on the SDK's internal handling
-      const result = await sdk.quickAuth.getToken();
+      const tokenPromise = sdk.quickAuth.getToken();
+      const timeoutPromise = new Promise<{token: string}>((_, reject) => 
+        setTimeout(() => reject(new Error("Auth request timed out")), 10000)
+      );
+
+      const { token } = await Promise.race([tokenPromise, timeoutPromise]);
       
-      if (!result || !result.token) {
+      if (!token) {
         throw new Error("Failed to authenticate. Please try again.");
       }
 
@@ -77,52 +85,56 @@ export default function ListAppForm() {
           txHash, 
           appData, 
           user,
-          // 2. SEND AUTH
-          auth: {
-            token: result.token
-          }
+          auth: { token }
         })
       });
 
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
+      setStatusMessage("Success!"); // Feedback step 3
       alert("Success! App Listed.");
       window.location.href = '/profile'; 
       
     } catch (e: any) {
       console.error("Listing failed", e);
-      setPendingTxHash(txHash); // Save hash so they can retry without paying again
+      setPendingTxHash(txHash); 
       setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
     } finally {
         setLoading(false); 
+        setStatusMessage("");
     }
   };
 
   const handleListApp = async (formData: FormData) => {
     setErrorState(null);
     setLoading(true);
+    setStatusMessage("Initializing...");
 
     const url = formData.get('url') as string;
     
     if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
       setErrorState("Invalid Link. Please use the official Farcaster Universal Link.");
       setLoading(false);
+      setStatusMessage("");
       return;
     }
 
     if (!user) {
       setErrorState("Please connect wallet.");
       setLoading(false);
+      setStatusMessage("");
       return;
     }
 
     try {
-      // If we already have a hash from a previous failed attempt, skip payment
       if (pendingTxHash) {
+        setStatusMessage("Retrying submission...");
         await processListing(pendingTxHash, formData);
         return;
       }
+
+      setStatusMessage("Please confirm payment in wallet..."); // Feedback step 1
 
       // 1. Request Payment
       const result = await sdk.actions.sendToken({
@@ -133,23 +145,21 @@ export default function ListAppForm() {
 
       // 2. Handle Result
       if (result.success) {
-        // Payment Succeeded -> Proceed to Backend
+        setStatusMessage("Payment sent! Finalizing...");
         await processListing(result.send.transaction, formData);
       } else {
-          // Payment Failed or Cancelled
           setLoading(false);
+          setStatusMessage("");
           if (result.reason === 'rejected_by_user') {
-             // User cancelled, no error message needed
              console.log("User cancelled payment");
           } else {
-             // Genuine failure
              setErrorState(`Transaction failed: ${result.error?.message || "Unknown error"}`);
           }
       }
     } catch (e: any) {
       console.error("Transaction Exception:", e);
       setLoading(false);
-      // Only show error if it wasn't a user rejection (sometimes throws instead of returning false)
+      setStatusMessage("");
       if (!e.message?.toLowerCase().includes("rejected")) {
         setErrorState("Transaction failed. Please try again.");
       }
@@ -271,9 +281,22 @@ export default function ListAppForm() {
         <button 
           disabled={loading} 
           type="submit" 
-          className={`p-4 rounded-xl font-bold text-white text-sm shadow-lg shadow-violet-600/30 active:scale-95 transition-all ${pendingTxHash ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:to-indigo-700'}`}
+          className={`p-4 rounded-xl font-bold text-white text-sm shadow-lg shadow-violet-600/30 active:scale-95 transition-all flex justify-center items-center gap-2 ${
+            pendingTxHash ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:to-indigo-700'
+          }`}
         >
-          {loading ? 'Processing...' : pendingTxHash ? 'Retry Submission' : `Pay ${MARKETPLACE_CONFIG.labels.listingPrice} & Submit`}
+          {loading && (
+            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          {loading 
+            ? (statusMessage || 'Processing...') 
+            : pendingTxHash 
+              ? 'Retry Submission' 
+              : `Pay ${MARKETPLACE_CONFIG.labels.listingPrice} & Submit`
+          }
         </button>
       </form>
     </div>
