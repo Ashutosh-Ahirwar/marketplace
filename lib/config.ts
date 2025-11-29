@@ -9,8 +9,8 @@ export const MARKETPLACE_CONFIG = {
 
   // Prices (in atomic units, 6 decimals for USDC)
   prices: {
-    listingUsdc: "5000000",   // $5.00
-    featuredUsdc: "50000000", // $50.00
+    listingUsdc: "50000",   // $5.00
+    featuredUsdc: "50000", // $50.00
   },
 
   // Display Text
