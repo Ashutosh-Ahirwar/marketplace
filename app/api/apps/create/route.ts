@@ -1,15 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-// FIX: Corrected import path and function name
-import { verifyPayment } from '@/lib/server/verify'; 
+import { verifyPayment } from '@/lib/server/verify';
+import { verifyUserAuth } from '@/lib/server/auth'; // Import the new helper
 import { MARKETPLACE_CONFIG } from '@/lib/config';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { txHash, appData, user } = body;
+    const { txHash, appData, user, auth } = body; // Expect 'auth' object
 
-    // 1. Verify Payment via Alchemy (Using correct function)
+    // 0. Security Check
+    if (!auth || !auth.signature) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    }
+    // Verify the user actually signed this request
+    await verifyUserAuth({ 
+      fid: user.fid, 
+      signature: auth.signature, 
+      message: auth.message, 
+      nonce: auth.nonce 
+    });
+
+    // 1. Verify Payment via Alchemy
     await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc);
 
     // 2. Check if Tx Hash already used
@@ -63,7 +75,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Listing Logic Error:", error);
-    // Return explicit error message to the client
     return NextResponse.json({ success: false, error: error.message || "Server Error" }, { status: 500 });
   }
 }

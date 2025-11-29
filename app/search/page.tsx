@@ -61,7 +61,7 @@ function SearchContent() {
           <p className="text-[10px] text-amber-800 font-medium">Use external apps at your own risk.</p>
         </div>
 
-        {/* ... Search Input & Pills (Same as before) ... */}
+        {/* Search Input & Pills */}
         <div className="relative shadow-sm mb-4">
           <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500/20" />
           <svg className="w-5 h-5 text-gray-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -75,8 +75,6 @@ function SearchContent() {
       </div>
 
       <div className="px-4 pb-24 pt-4">
-        {/* ... Rest of Content (Same as previous step) ... */}
-        {/* I am omitting the duplicated JSX for brevity, assume the logic for New Arrivals, Trending, and Grid matches the last update */}
         {!searchQuery && selectedCategory === 'all' && (
           <>
             <section className="mb-8">
@@ -93,7 +91,6 @@ function SearchContent() {
             </section>
             
             <section className="mb-8">
-               {/* Trending Section... */}
                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
                 {displayedTrending.map((app, i) => (
                   <div key={app.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
@@ -101,8 +98,6 @@ function SearchContent() {
                     <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
-                      {/* REMOVED VIEWS DISPLAY */}
-                      {/* <p className="text-xs text-gray-500">{app.uniqueViews} views</p> */} 
                     </div>
                     <div className="w-20"><OpenAppButton url={app.url} appId={app.id} /></div>
                   </div>
@@ -113,7 +108,6 @@ function SearchContent() {
         )}
 
         <section className="mt-4">
-           {/* Grid Results... */}
            <div className="grid grid-cols-2 gap-4">
             {filteredApps.map(app => (
               <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col relative overflow-hidden">

@@ -16,10 +16,12 @@ const toMiniApp = (data: any): MiniApp => ({
 });
 
 export default async function Home() {
+  // 1. Fetch Featured Slots
   const activeSlots = await prisma.featuredSlot.findMany({
     where: { expiresAt: { gt: new Date() } },
     include: { app: { include: { owner: true } } },
-    orderBy: { slotIndex: 'asc' }
+    orderBy: { slotIndex: 'asc' },
+    take: 6 // Strict limit
   });
 
   const featuredSlots: (MiniApp | null)[] = Array(6).fill(null);
@@ -27,10 +29,11 @@ export default async function Home() {
     featuredSlots[slot.slotIndex] = toMiniApp(slot.app);
   });
 
-  // Fetch all apps to sort and filter
+  // 2. Fetch Top Apps (Limited to top 50 for performance)
   const appsData = await prisma.miniApp.findMany({
     orderBy: { trendingScore: 'desc' }, 
-    include: { owner: true }
+    include: { owner: true },
+    take: 50 // SCALABILITY FIX: Limit query
   });
   
   const allApps = appsData.map(toMiniApp);
@@ -98,10 +101,6 @@ export default async function Home() {
         
         {/* CATEGORIES */}
         {sortedCategories.map(([category, apps]) => {
-          // Show placeholders only if category is empty AND it's one of the top 3 standard categories to keep it clean
-          // OR just show non-empty ones + maybe 1 placeholder section at bottom.
-          // For now, we follow "Prioritize apps" logic.
-          
           if (apps.length === 0) return null; 
 
           return (
@@ -127,7 +126,6 @@ export default async function Home() {
                         <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl shadow-sm mb-3 object-cover group-hover:scale-105 transition-transform duration-300" />
                         <h3 className="font-bold text-sm text-violet-900 truncate w-full">{app.name}</h3>
                         <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
-                        {/* Description added */}
                         <p className="text-[10px] text-gray-400 line-clamp-2 h-8 leading-tight">{app.description}</p>
                       </div>
                       

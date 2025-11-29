@@ -14,83 +14,85 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
-  const [isPaused, setIsPaused] = useState(false); // Pause auto-play interaction
+  const [isPaused, setIsPaused] = useState(false);
+  
+  // New State for Selection Logic
+  const [myApps, setMyApps] = useState<MiniApp[]>([]);
+  const [showSelector, setShowSelector] = useState<number | null>(null); // Index of slot being rented
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to scroll to specific index
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      scrollToIndex(activeIndex + 1);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [activeIndex, isPaused, featuredApps.length]);
+
+  // Fetch User's Apps on Mount
+  useEffect(() => {
+    const fetchMyApps = async () => {
+      try {
+        const ctx = await sdk.context;
+        if (ctx?.user?.fid) {
+          const res = await fetch(`/api/user/${ctx.user.fid}`);
+          const data = await res.json();
+          if (data.listings) setMyApps(data.listings);
+        }
+      } catch (e) {
+        console.error("Failed to load user apps", e);
+      }
+    };
+    fetchMyApps();
+  }, []);
+
   const scrollToIndex = (index: number) => {
     if (scrollContainerRef.current) {
-      // Ensure index stays within bounds or wraps around
       const targetIndex = (index + featuredApps.length) % featuredApps.length;
-      
       const child = scrollContainerRef.current.children[targetIndex] as HTMLElement;
-      
       if (child) {
-        // Account for the padding-left of the container (16px / 1rem from px-4)
         const scrollPos = child.offsetLeft - 16; 
-        
-        scrollContainerRef.current.scrollTo({
-          left: scrollPos,
-          behavior: 'smooth'
-        });
+        scrollContainerRef.current.scrollTo({ left: scrollPos, behavior: 'smooth' });
       }
     }
   };
-
-  // --- AUTO-PLAY LOGIC ---
-  useEffect(() => {
-    if (isPaused) return;
-
-    const interval = setInterval(() => {
-      scrollToIndex(activeIndex + 1);
-    }, 4000); // 4 Seconds per slide
-
-    return () => clearInterval(interval);
-  }, [activeIndex, isPaused, featuredApps.length]);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const scrollLeft = scrollContainerRef.current.scrollLeft;
       const width = scrollContainerRef.current.offsetWidth;
       const index = Math.round(scrollLeft / width);
-      
       if (index !== activeIndex && index >= 0 && index < featuredApps.length) {
         setActiveIndex(index);
       }
     }
   };
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    scrollToIndex(activeIndex - 1);
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    scrollToIndex(activeIndex + 1);
-  };
-
-  // --- NAVIGATION HANDLER ---
   const handleAppClick = async (app: MiniApp) => {
     try {
       const ctx = await sdk.context;
-      
       if (ctx?.client && !ctx.client.added) {
         try { await sdk.actions.addMiniApp(); } catch (e) {}
       }
-
-      console.log(`[Analytics] Open Featured - FID: ${ctx?.user?.fid || 0}, App: ${app.id}`);
       await sdk.actions.openMiniApp({ url: app.url });
     } catch (e) {
       console.error("Navigation failed", e);
     }
   };
 
-  // --- RENTAL HANDLER ---
-  const rentSlot = async (slotIndex: number) => {
+  const startRentProcess = (slotIndex: number) => {
+    setIsPaused(true);
+    if (myApps.length === 0) {
+      alert("You need to list an app first before you can feature it!");
+      return;
+    }
+    setShowSelector(slotIndex);
+  };
+
+  const confirmRent = async (slotIndex: number, appId: string) => {
     setLoadingIndex(slotIndex);
-    setIsPaused(true); 
+    setShowSelector(null); // Close modal
     
     try {
       const ctx = await sdk.context;
@@ -105,10 +107,11 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
 
       if (result.success) {
         const txHash = result.send.transaction;
-        const res = await fetch('/api/apps/feature', {
+        // LOGIC FIX: Passing real appId now
+        const res = await fetch('/api/featured', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash, fid: user.fid, slotIndex, appId: "placeholder", user })
+          body: JSON.stringify({ txHash, fid: user.fid, slotIndex, appId })
         });
         const data = await res.json();
         if (data.success) { alert(`Slot Secured!`); router.refresh(); }
@@ -117,39 +120,20 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
     } catch (error: any) { alert(`Error: ${error.message}`); } 
     finally { 
       setLoadingIndex(null); 
-      setIsPaused(false); // Resume
+      setIsPaused(false); 
     }
   };
 
   return (
     <div 
-      className="mb-8 relative w-full group" // Added 'group' for hover effects
+      className="mb-8 relative w-full group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setTimeout(() => setIsPaused(false), 2000)}
     > 
       <div className="flex justify-between items-end mb-3 px-1">
         <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Launchpad</h2>
         <span className="text-xs font-mono text-violet-400 bg-violet-100 px-2 py-0.5 rounded-md">{activeIndex + 1} / 6</span>
       </div>
-
-      {/* Navigation Buttons (Visible on hover or active interaction) */}
-      <button 
-        onClick={handlePrev}
-        className="absolute left-2 top-[60%] -translate-y-1/2 z-10 bg-white/90 text-violet-700 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hover:bg-white hover:scale-110 active:scale-95 disabled:opacity-0"
-        aria-label="Previous Slide"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-      </button>
-
-      <button 
-        onClick={handleNext}
-        className="absolute right-2 top-[60%] -translate-y-1/2 z-10 bg-white/90 text-violet-700 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 hover:bg-white hover:scale-110 active:scale-95 disabled:opacity-0"
-        aria-label="Next Slide"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-      </button>
 
       <div 
         ref={scrollContainerRef}
@@ -177,7 +161,6 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                   </div>
                 </div>
                 <p className="text-xs text-violet-100 line-clamp-2 mb-3 leading-relaxed">{app.description}</p>
-                
                 <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
                     <OpenAppButton url={app.url} appId={app.id} variant="light" />
                 </div>
@@ -189,13 +172,31 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                 <h3 className="text-violet-900 font-bold text-lg mb-0.5">Launch Your App</h3>
                 <p className="text-xs text-gray-500 mb-5">{MARKETPLACE_CONFIG.labels.featuredPrice} / 24h</p>
                 
-                <button 
-                  onClick={() => rentSlot(index)} 
-                  disabled={loadingIndex === index}
-                  className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-6 py-2.5 rounded-full text-xs font-bold transition-all shadow-lg shadow-amber-400/30 active:scale-95"
-                >
-                  {loadingIndex === index ? "Processing..." : "Rent This Slot"}
-                </button>
+                {showSelector === index ? (
+                  <div className="w-full flex flex-col gap-2 animate-fade-in">
+                    <p className="text-xs font-bold text-violet-900">Select App to Feature:</p>
+                    <div className="max-h-20 overflow-y-auto border border-violet-100 rounded-lg">
+                      {myApps.map(myApp => (
+                        <button 
+                           key={myApp.id}
+                           onClick={() => confirmRent(index, myApp.id)}
+                           className="w-full text-left text-xs p-2 hover:bg-violet-50 text-violet-900 truncate"
+                        >
+                          {myApp.name}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setShowSelector(null)} className="text-[10px] text-gray-400 underline">Cancel</button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => startRentProcess(index)} 
+                    disabled={loadingIndex === index}
+                    className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-6 py-2.5 rounded-full text-xs font-bold transition-all shadow-lg shadow-amber-400/30 active:scale-95"
+                  >
+                    {loadingIndex === index ? "Processing..." : "Rent This Slot"}
+                  </button>
+                )}
               </div>
             )}
           </div>

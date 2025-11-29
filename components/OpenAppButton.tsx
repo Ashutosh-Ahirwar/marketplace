@@ -9,8 +9,7 @@ export default function OpenAppButton({ url, appId, variant = 'dark' }: { url: s
     try {
       setLoading(true);
       const ctx = await sdk.context;
-      const userFid = ctx?.user?.fid || 0; 
-
+      
       // 1. Check/Prompt Bookmark before leaving
       if (ctx?.client && !ctx.client.added) {
         try {
@@ -21,17 +20,8 @@ export default function OpenAppButton({ url, appId, variant = 'dark' }: { url: s
         }
       }
 
-      // 2. Analytics (Call our new API)
-      if (userFid) {
-        // Fire and forget (don't await to speed up UI)
-        fetch('/api/analytics/view', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appId, fid: userFid })
-        });
-      }
-
-      // 3. Open Target App
+      // 2. Open Target App
+      // Analytics call removed
       await sdk.actions.openMiniApp({ url }); 
     } catch (e) {
       console.error("Failed to open app:", e);
@@ -41,7 +31,7 @@ export default function OpenAppButton({ url, appId, variant = 'dark' }: { url: s
     }
   };
 
-  const baseClasses = "mt-auto w-full font-bold py-2.5 rounded-xl text-xs transition-all flex justify-center items-center shadow-sm active:scale-95 z-20 relative"; // Added z-20 relative
+  const baseClasses = "mt-auto w-full font-bold py-2.5 rounded-xl text-xs transition-all flex justify-center items-center shadow-sm active:scale-95 z-20 relative"; 
   
   const themeClasses = variant === 'dark' 
     ? "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-500/20" 

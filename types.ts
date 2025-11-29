@@ -30,7 +30,7 @@ export interface MiniApp {
   ownerFid: number;       // FID of the person who listed it
   isVerified: boolean;
   createdAt: number;
-  uniqueViews: number;
+  // uniqueViews: number; // REMOVED
   clicks: number;
   trendingScore: number;
 }
