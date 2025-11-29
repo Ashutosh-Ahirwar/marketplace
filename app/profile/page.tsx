@@ -1,9 +1,9 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
-// Use relative path for reliability
-import { Transaction, MiniApp } from '@/types'
-import OpenAppButton from '@/components/OpenAppButton'
+// FIX: Using relative paths for build stability
+import { Transaction, MiniApp } from '../../types'
+import OpenAppButton from '../../components/OpenAppButton'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<{ fid: number; username?: string; pfpUrl?: string } | null>(null);
@@ -11,9 +11,9 @@ export default function ProfilePage() {
   const [myListings, setMyListings] = useState<MiniApp[]>([]);
   const [activeTab, setActiveTab] = useState<'listings' | 'history'>('listings');
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   // Custom UI States to replace native alerts/confirms
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
 
@@ -53,9 +53,12 @@ export default function ProfilePage() {
 
   const initiateDelete = (appId: string) => {
     if (confirmingId === appId) {
+      // User clicked twice, proceed to delete immediately
       handleDelete(appId);
     } else {
+      // First click, ask for confirmation
       setConfirmingId(appId);
+      // Auto-reset confirmation after 3 seconds if not clicked
       setTimeout(() => setConfirmingId(null), 3000);
     }
   };
@@ -63,24 +66,24 @@ export default function ProfilePage() {
   const handleDelete = async (appId: string) => {
     if (!user) return;
     
+    // Clear confirmation state and set loading state
     setConfirmingId(null);
     setIsDeleting(appId);
 
     try {
       const nonce = `delete-${appId}-${Date.now()}`;
       
-      // FIX: Add Timeout to prevent "Stuck" state if SDK hangs
-      // This waits for EITHER the sign-in result OR a 15-second timer
+      // Request signature directly.
       const signPromise = sdk.actions.signIn({ nonce });
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Signature request timed out")), 15000)
+        setTimeout(() => reject(new Error("Signature request timed out. Please try again.")), 60000)
       );
 
-      // @ts-ignore - Promise.race types can be tricky with SDKs
+      // @ts-ignore
       const signResult: any = await Promise.race([signPromise, timeoutPromise]);
 
       if (!signResult.signature || !signResult.message) {
-        throw new Error("Signature failed or was rejected");
+        throw new Error("Signature failed. You must sign to verify ownership.");
       }
 
       // 3. Send Authenticated Request
@@ -108,9 +111,12 @@ export default function ProfilePage() {
       }
     } catch (e: any) {
       console.error(e);
-      showToast(e.message || "Error deleting app.", 'error');
+      // Simplify error message for user
+      const msg = e.message?.includes("rejected") 
+        ? "Signature rejected." 
+        : (e.message || "Error deleting app. Please try again.");
+      showToast(msg, 'error');
     } finally {
-      // CRITICAL: Always reset loading state
       setIsDeleting(null);
     }
   };
