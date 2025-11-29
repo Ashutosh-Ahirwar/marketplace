@@ -9,22 +9,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { txHash, appData, user, auth } = body; 
 
-    // 0. Security Check (Recover Address)
-    if (!auth || !auth.signature) {
+    // 0. Security Check: Validate Quick Auth Token
+    if (!auth || !auth.token) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
     
-    // Auth helper now returns the address
-    const userWalletAddress = await verifyUserAuth({ 
-      fid: user.fid, 
-      signature: auth.signature, 
-      message: auth.message, 
-      nonce: auth.nonce 
+    // Verify user identity using Quick Auth
+    // This ensures the request actually came from the user with 'user.fid'
+    await verifyUserAuth({ 
+      token: auth.token,
+      fid: user.fid
     });
 
-    // 1. Verify Payment AND Sender
-    // We pass userWalletAddress to ensure this user actually paid
-    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc, userWalletAddress as string);
+    // 1. Verify Payment
+    // We verify the transaction exists and has the correct value.
+    // Note: With Quick Auth (JWT), we don't instantly have the user's wallet address to verify sender.
+    // We trust the FID authentication + valid transaction hash for this flow.
+    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc);
 
     // 2. Check if Tx Hash already used
     const existingTx = await prisma.transaction.findUnique({ where: { txHash } });
@@ -40,12 +41,14 @@ export async function POST(req: Request) {
 
     // 4. Atomic Database Transaction
     await prisma.$transaction(async (tx) => {
+      // Ensure User
       await tx.user.upsert({
         where: { fid: user.fid },
         update: { username: user.username },
         create: { fid: user.fid, username: user.username }
       });
 
+      // Create App
       await tx.miniApp.create({
         data: {
           name: appData.name,
@@ -58,6 +61,7 @@ export async function POST(req: Request) {
         }
       });
 
+      // Record Transaction
       await tx.transaction.create({
         data: {
           txHash,
