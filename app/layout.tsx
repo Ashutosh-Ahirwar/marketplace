@@ -14,26 +14,46 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// --- DEFINE APP URL ---
+// Replace this with your actual deployed Vercel URL
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://your-miniapp-url.vercel.app";
+
 export const metadata: Metadata = {
   title: "MiniApp Mart",
-  description: "Discover, List, and Trade Farcaster Mini Apps.",
+  description: "Discover and List Farcaster Mini Apps.",
   openGraph: {
     title: "MiniApp Mart",
-    description: "The decentralized app store for Farcaster.",
-    images: ["https://placehold.co/600x400.png?text=MiniApp+Mart"], 
+    description: "The app store for Farcaster.",
+    images: [`${APP_URL}/icon.png`], // Ensure this image exists in public/ folder
   },
   other: {
+    // MODERN MINI APP EMBED
     "fc:miniapp": JSON.stringify({
       version: "1",
-      imageUrl: "https://placehold.co/600x400.png?text=MiniApp+Mart",
+      imageUrl: `${APP_URL}/hero.png`, // 3:2 Aspect Ratio Image
       button: {
-        title: "Explore Apps",
+        title: "Launch 🚀",
+        action: {
+          type: "launch_miniapp",
+          name: "MiniApp Mart",
+          url: APP_URL,
+          splashImageUrl: `${APP_URL}/rocket-icon.png`,
+          splashBackgroundColor: "#f5f3ff" // Matches your Violet-50 background
+        }
+      }
+    }),
+    // BACKWARD COMPATIBILITY
+    "fc:frame": JSON.stringify({
+      version: "1",
+      imageUrl: `${APP_URL}/hero.png`,
+      button: {
+        title: "Launch 🚀",
         action: {
           type: "launch_frame",
           name: "MiniApp Mart",
-          url: "https://miniapp-mart.vercel.app", // Replace with your domain
-          splashImageUrl: "https://placehold.co/200.png",
-          splashBackgroundColor: "#f8fafc"
+          url: APP_URL,
+          splashImageUrl: `${APP_URL}/rocket-icon.png`,
+          splashBackgroundColor: "#f5f3ff"
         }
       }
     })
@@ -48,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-violet-50 text-slate-900`}
       >
         <SDKProvider>
           {/* Main content padding bottom to avoid overlap with Navbar */}
