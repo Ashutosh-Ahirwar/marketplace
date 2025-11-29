@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL") // Connection Pooler (Port 6543)
-  directUrl = env("DIRECT_URL")   // Direct Connection (Port 5432)
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -14,6 +14,7 @@ model User {
   pfpUrl        String?
   listings      MiniApp[]
   transactions  Transaction[]
+  // Removed: views AppView[] 
   createdAt     DateTime      @default(now())
 }
 
@@ -29,14 +30,18 @@ model MiniApp {
   isVerified     Boolean       @default(false)
   createdAt      DateTime      @default(now())
   
-  // Analytics
-  uniqueViews    Int           @default(0)
+  // Analytics (Simple Counters)
+  uniqueViews    Int           @default(0) 
   clicks         Int           @default(0)
   trendingScore  Float         @default(0)
 
-  // Featured Status
+  // Relations
+  // Removed: views AppView[]
   featuredSlot   FeaturedSlot?
 }
+
+// Removed Model: AppView
+// model AppView { ... }
 
 model FeaturedSlot {
   slotIndex Int      @id
@@ -50,9 +55,9 @@ model Transaction {
   txHash      String   @unique
   user        User     @relation(fields: [userFid], references: [fid])
   userFid     Int
-  type        String
+  type        String   
   amount      String
   description String
-  status      String
+  status      String   
   timestamp   DateTime @default(now())
 }

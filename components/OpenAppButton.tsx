@@ -21,8 +21,15 @@ export default function OpenAppButton({ url, appId, variant = 'dark' }: { url: s
         }
       }
 
-      // 2. Analytics
-      console.log(`[Analytics] Open - FID: ${userFid}, App: ${appId}`);
+      // 2. Analytics (Call our new API)
+      if (userFid) {
+        // Fire and forget (don't await to speed up UI)
+        fetch('/api/analytics/view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appId, fid: userFid })
+        });
+      }
 
       // 3. Open Target App
       await sdk.actions.openMiniApp({ url }); 
@@ -34,7 +41,7 @@ export default function OpenAppButton({ url, appId, variant = 'dark' }: { url: s
     }
   };
 
-  const baseClasses = "mt-auto w-full font-bold py-2.5 rounded-xl text-xs transition-all flex justify-center items-center shadow-sm active:scale-95";
+  const baseClasses = "mt-auto w-full font-bold py-2.5 rounded-xl text-xs transition-all flex justify-center items-center shadow-sm active:scale-95 z-20 relative"; // Added z-20 relative
   
   const themeClasses = variant === 'dark' 
     ? "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-500/20" 

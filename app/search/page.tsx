@@ -101,7 +101,8 @@ function SearchContent() {
                     <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
-                      <p className="text-xs text-gray-500">{app.uniqueViews} views</p>
+                      {/* REMOVED VIEWS DISPLAY */}
+                      {/* <p className="text-xs text-gray-500">{app.uniqueViews} views</p> */} 
                     </div>
                     <div className="w-20"><OpenAppButton url={app.url} appId={app.id} /></div>
                   </div>
