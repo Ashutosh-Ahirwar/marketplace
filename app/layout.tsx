@@ -14,50 +14,45 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// --- DEFINE APP URL ---
-// Replace this with your actual deployed Vercel URL
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://marketplace-lovat-zeta.vercel.app/";
+// --- CONFIGURATION FROM MANIFEST ---
+const APP_URL = "https://marketplace-lovat-zeta.vercel.app";
+
+const miniAppEmbed = {
+  version: "1",
+  imageUrl: `${APP_URL}/icon.png`, // Matches manifest "imageUrl"
+  button: {
+    title: "Explore Apps", // Matches manifest "buttonTitle"
+    action: {
+      type: "launch_miniapp",
+      name: "MiniApp Mart", // Matches manifest "name"
+      url: APP_URL, // Matches manifest "homeUrl"
+      splashImageUrl: `${APP_URL}/splash.png`, // Matches manifest "splashImageUrl"
+      splashBackgroundColor: "#ffffff", // Matches manifest "splashBackgroundColor"
+    }
+  }
+};
 
 export const metadata: Metadata = {
   title: "MiniApp Mart",
-  description: "Discover and List Farcaster Mini Apps.",
+  description: "Discover and List MiniApps", // Matches manifest "description"
   openGraph: {
     title: "MiniApp Mart",
-    description: "The app store for Farcaster.",
-    images: [`${APP_URL}/hero.png`], // Ensure this image exists in public/ folder
+    description: "Discover and List MiniApps",
+    images: [`${APP_URL}/hero.png`], // Matches manifest "heroImageUrl" for better social sharing
   },
   other: {
-    // MODERN MINI APP EMBED
-    "fc:miniapp": JSON.stringify({
-      version: "1",
-      imageUrl: `${APP_URL}/hero.png`, // 3:2 Aspect Ratio Image
+    "fc:miniapp": JSON.stringify(miniAppEmbed),
+    "fc:frame": JSON.stringify({
+      ...miniAppEmbed,
       button: {
-        title: "Launch 🚀",
+        ...miniAppEmbed.button,
         action: {
-          type: "launch_miniapp",
-          name: "MiniApp Mart",
-          url: APP_URL,
-          splashImageUrl: `${APP_URL}/rocket-icon.png`,
-          splashBackgroundColor: "#f5f3ff" // Matches your Violet-50 background
+          ...miniAppEmbed.button.action,
+          type: "launch_frame" // Legacy compatibility
         }
       }
     }),
-    // BACKWARD COMPATIBILITY
-    "fc:frame": JSON.stringify({
-      version: "1",
-      imageUrl: `${APP_URL}/hero.png`,
-      button: {
-        title: "Launch 🚀",
-        action: {
-          type: "launch_frame",
-          name: "MiniApp Mart",
-          url: APP_URL,
-          splashImageUrl: `${APP_URL}/rocket-icon.png`,
-          splashBackgroundColor: "#f5f3ff"
-        }
-      }
-    })
-  }
+  },
 };
 
 export default function RootLayout({
