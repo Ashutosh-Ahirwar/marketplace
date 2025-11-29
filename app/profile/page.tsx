@@ -1,7 +1,7 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
-// FIX: Using relative paths for build stability
+// Use relative path for reliability
 import { Transaction, MiniApp } from '../../types'
 import OpenAppButton from '../../components/OpenAppButton'
 
@@ -71,18 +71,22 @@ export default function ProfilePage() {
     setIsDeleting(appId);
 
     try {
-      const nonce = `delete-${appId}-${Date.now()}`;
+      const nonce = `del${Date.now()}`;
       
-      // Request signature directly.
-      const signPromise = sdk.actions.signIn({ nonce });
+      console.log("Requesting signature...");
+      
+      // We create a promise that rejects after 15 seconds to prevent indefinite hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Signature request timed out. Please try again.")), 60000)
+        setTimeout(() => reject(new Error("Signature request timed out. Please check your wallet.")), 15000)
       );
 
-      // @ts-ignore
+      // Request signature
+      const signPromise = sdk.actions.signIn({ nonce });
+
+      // @ts-ignore - Promise.race to handle timeouts
       const signResult: any = await Promise.race([signPromise, timeoutPromise]);
 
-      if (!signResult.signature || !signResult.message) {
+      if (!signResult || !signResult.signature || !signResult.message) {
         throw new Error("Signature failed. You must sign to verify ownership.");
       }
 
