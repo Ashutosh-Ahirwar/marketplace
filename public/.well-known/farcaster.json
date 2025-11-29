@@ -2,21 +2,19 @@
   "miniapp": {
     "name": "MiniApp Mart",
     "version": "1",
-    "iconUrl": "https://your-domain.com/icon.png",
-    "homeUrl": "https://your-domain.com",
-    "imageUrl": "https://your-domain.com/og-image.png",
+    "iconUrl": "https://marketplace-lovat-zeta.vercel.app/icon.png",
+    "homeUrl": "https://marketplace-lovat-zeta.vercel.app",
+    "imageUrl": "https://marketplace-lovat-zeta.vercel.app/icon.png",
     "buttonTitle": "Explore Market",
-    "splashImageUrl": "https://your-domain.com/splash-icon.png",
+    "splashImageUrl": "https://marketplace-lovat-zeta.vercel.app/splash.png",
     "splashBackgroundColor": "#f8fafc",
     "subtitle": "Discover & List Farcaster Apps",
     "description": "The decentralized app store for Farcaster. Discover trending Mini Apps, list your own project for $5 USDC, and rent featured slots to boost visibility.",
     "primaryCategory": "developer-tools",
     "screenshotUrls": [
-      "https://your-domain.com/screenshots/home.png",
-      "https://your-domain.com/screenshots/search.png",
-      "https://your-domain.com/screenshots/profile.png"
+      "https://marketplace-lovat-zeta.vercel.app/screenshots/screenshot1.png"
     ],
-    "heroImageUrl": "https://your-domain.com/hero.png",
+    "heroImageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
     "tags": [
       "marketplace",
       "store",
@@ -27,7 +25,7 @@
     "tagline": "The community-driven Mini App store",
     "ogTitle": "MiniApp Mart",
     "ogDescription": "List your Farcaster Mini App for just $5 USDC. Discover what's trending on Base.",
-    "ogImageUrl": "https://your-domain.com/og-image.png",
+    "ogImageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
     "requiredChains": [
       "eip155:8453"
     ],
