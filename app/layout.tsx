@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 // --- DEFINE APP URL ---
 // Replace this with your actual deployed Vercel URL
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://your-miniapp-url.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://marketplace-lovat-zeta.vercel.app/";
 
 export const metadata: Metadata = {
   title: "MiniApp Mart",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "MiniApp Mart",
     description: "The app store for Farcaster.",
-    images: [`${APP_URL}/icon.png`], // Ensure this image exists in public/ folder
+    images: [`${APP_URL}/hero.png`], // Ensure this image exists in public/ folder
   },
   other: {
     // MODERN MINI APP EMBED
