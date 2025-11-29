@@ -1,8 +1,8 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
-import { APP_CATEGORIES } from '@/types'
-import { MARKETPLACE_CONFIG } from '@/lib/config'
+import { APP_CATEGORIES } from '../types'
+import { MARKETPLACE_CONFIG } from '../lib/config'
 
 export default function ListAppForm() {
   const [loading, setLoading] = useState(false);
@@ -11,15 +11,31 @@ export default function ListAppForm() {
   const [user, setUser] = useState<{ fid: number; username: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
+  // Form State
   const [iconUrl, setIconUrl] = useState('');
   const [appName, setAppName] = useState('');
+  const [appUrl, setAppUrl] = useState(''); // Managed state for URL
   const [descCount, setDescCount] = useState(0);
 
+  // Validation State
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [isUrlVerified, setIsUrlVerified] = useState(false);
+  const [verifyingUrl, setVerifyingUrl] = useState(false);
+
+  // Recovery State
   const [pendingTxHash, setPendingTxHash] = useState<string | null>(null);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
 
   const DESC_LIMIT = 100;
   const NAME_LIMIT = 30;
+  const REQUIRED_PREFIX = "https://farcaster.xyz/miniapps/";
+
+  // Helper to show custom notifications
+  const showToast = (msg: string, type: 'success' | 'error') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -34,31 +50,75 @@ export default function ListAppForm() {
     load();
   }, []);
 
+  // Live Validation for URL
+  useEffect(() => {
+    if (!appUrl) {
+        setUrlError(null);
+        return;
+    }
+    if (!appUrl.startsWith(REQUIRED_PREFIX)) {
+        setUrlError("URL must start with 'https://farcaster.xyz/miniapps/'");
+        setIsUrlVerified(false);
+    } else {
+        setUrlError(null);
+        // Reset verification if URL changes after being verified
+        if (isUrlVerified) setIsUrlVerified(false);
+    }
+  }, [appUrl]);
+
   const handleConnect = async () => {
     try {
       const ctx = await sdk.context;
       if (ctx?.user?.username) {
         setUser({ fid: ctx.user.fid, username: ctx.user.username });
         setIsConnected(true);
+      } else {
+        await sdk.actions.signIn({ nonce: `connect-${Date.now()}` });
       }
     } catch (e) {
-      alert("Connection failed.");
+      showToast("Connection failed.", 'error');
+    }
+  };
+
+  const checkUrlAvailability = async () => {
+    if (urlError || !appUrl) return;
+    
+    setVerifyingUrl(true);
+    try {
+        const res = await fetch('/api/apps/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: appUrl })
+        });
+        const data = await res.json();
+        
+        if (data.exists) {
+            setUrlError(`App already listed: ${data.app.name}`);
+            setIsUrlVerified(false);
+        } else {
+            setIsUrlVerified(true);
+            // No explicit success toast needed, UI indicator is better
+        }
+    } catch (e) {
+        showToast("Failed to verify URL.", 'error');
+    } finally {
+        setVerifyingUrl(false);
     }
   };
 
   const processListing = async (txHash: string, formData: FormData) => {
     try {
-      setStatusMessage("Verifying listing..."); 
+      setStatusMessage("Authenticating..."); 
       
       if (!user) throw new Error("User context missing");
 
-      // 1. GENERATE SIGNATURE (Quick Auth)
-      // Note: We await this safely.
       const tokenResult = await sdk.quickAuth.getToken();
       
       if (!tokenResult || !tokenResult.token) {
         throw new Error("Failed to authenticate. Please try again.");
       }
+
+      setStatusMessage("Finalizing listing...");
 
       const appData = {
         name: formData.get('name'),
@@ -84,22 +144,21 @@ export default function ListAppForm() {
       if (!data.success) throw new Error(data.error);
 
       setStatusMessage("Success!"); 
-      alert("Success! App Listed.");
-      window.location.href = '/profile'; 
+      showToast("App Listed Successfully! Redirecting...", 'success');
+      
+      setTimeout(() => {
+        window.location.href = '/profile';
+      }, 1500);
       
     } catch (e: any) {
       console.error("Listing failed", e);
       setPendingTxHash(txHash); 
       setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
+      setLoading(false);
     } 
-    // IMPORTANT: We do NOT set loading=false here if this was called from handleListApp
-    // because handleListApp's finally block will handle it. 
-    // BUT since we are unsure of the call stack depth, it's safer to let the top-level handler manage 'loading'.
-    // However, to be safe for retry clicks (where handleListApp calls this directly), we will return true/false.
   };
 
   const handleListApp = async (formData: FormData) => {
-    // 1. Reset States
     setErrorState(null);
     setLoading(true);
     setStatusMessage("Initializing...");
@@ -107,22 +166,34 @@ export default function ListAppForm() {
     try {
       const url = formData.get('url') as string;
       
-      if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
-        throw new Error("Invalid Link. Please use the official Farcaster Universal Link.");
+      // Strict check before even starting payment
+      if (!url.startsWith(REQUIRED_PREFIX)) {
+        throw new Error("Invalid Link. Please check the URL format.");
+      }
+
+      // Optional: Force verification before allowing submission
+      if (!isUrlVerified) {
+          // You could force them to click "Verify", or just run the check silently here.
+          // Let's run a silent check to be safe.
+          const res = await fetch('/api/apps/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          const data = await res.json();
+          if (data.exists) throw new Error("This app is already listed.");
       }
 
       if (!user) {
         throw new Error("Please connect wallet.");
       }
 
-      // 2. Check for Pending Retry
       if (pendingTxHash) {
         setStatusMessage("Retrying submission...");
         await processListing(pendingTxHash, formData);
-        return; // Exit, finally block will clean up
+        return; 
       }
 
-      // 3. Request Payment
       setStatusMessage("Please confirm payment in wallet..."); 
       const result = await sdk.actions.sendToken({
         token: MARKETPLACE_CONFIG.tokens.baseUsdc,
@@ -130,16 +201,13 @@ export default function ListAppForm() {
         recipientAddress: MARKETPLACE_CONFIG.recipientAddress, 
       });
 
-      // 4. Handle Result
       if (result.success) {
-        setStatusMessage("Payment sent! Finalizing...");
-        // Pass the transaction hash to the backend
+        setStatusMessage("Payment sent! Verifying...");
         await processListing(result.send.transaction, formData);
       } else {
-        // Handle Cancellation / Failure
+        setLoading(false);
         if (result.reason === 'rejected_by_user') {
            console.log("User cancelled payment");
-           // No error state needed, just stop loading
         } else {
            throw new Error(`Transaction failed: ${result.error?.message || "Unknown error"}`);
         }
@@ -147,19 +215,23 @@ export default function ListAppForm() {
 
     } catch (e: any) {
       console.error("Transaction/Listing Exception:", e);
-      // Only show error if it wasn't a user rejection (sometimes throws instead of returning false)
+      setLoading(false);
       if (!e.message?.toLowerCase().includes("rejected")) {
         setErrorState(e.message || "Transaction failed. Please try again.");
       }
-    } finally {
-      // 5. Global Cleanup
-      setLoading(false);
-      setStatusMessage("");
     }
   };
 
   return (
-    <div className="p-6 border border-violet-100 rounded-3xl bg-white shadow-sm flex flex-col gap-5">
+    <div className="p-6 border border-violet-100 rounded-3xl bg-white shadow-sm flex flex-col gap-5 relative">
+      {toast && (
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full shadow-lg text-xs font-bold animate-fade-in-down transition-all w-max ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+            {toast.msg}
+        </div>
+      )}
+
       <div>
         <h3 className="font-bold text-xl text-violet-950">List App ({MARKETPLACE_CONFIG.labels.listingPrice})</h3>
         <p className="text-xs text-violet-400">Fee per listing • Base USDC</p>
@@ -171,7 +243,6 @@ export default function ListAppForm() {
         </div>
       )}
 
-      {/* Account Connection */}
       <div className={`p-4 rounded-2xl border flex justify-between items-center transition-colors ${isConnected ? 'bg-violet-50 border-violet-100' : 'bg-gray-50 border-gray-100'}`}>
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isConnected ? 'bg-violet-200 text-violet-700' : 'bg-gray-200 text-gray-500'}`}>
@@ -199,7 +270,6 @@ export default function ListAppForm() {
           </div>
         )}
 
-        {/* --- APP NAME --- */}
         <input 
           name="name" 
           placeholder="App Name" 
@@ -209,7 +279,6 @@ export default function ListAppForm() {
           className="p-3.5 bg-violet-50/50 border border-violet-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all text-violet-900 placeholder:text-violet-300" 
         />
         
-        {/* --- DESCRIPTION --- */}
         <div className="relative">
           <textarea 
             name="description" 
@@ -222,22 +291,57 @@ export default function ListAppForm() {
           <div className="absolute bottom-2 right-2 text-[10px] text-violet-300 font-mono">{descCount}/{DESC_LIMIT}</div>
         </div>
         
-        {/* --- APP URL --- */}
+        {/* --- APP URL WITH LIVE VALIDATION --- */}
         <div className="relative">
-          <input 
-            name="url" 
-            type="url" 
-            placeholder="https://farcaster.xyz/miniapps/..." 
-            required 
-            className="p-3.5 pl-9 bg-violet-50/50 border border-violet-100 rounded-xl text-sm w-full outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all text-violet-900 placeholder:text-violet-300" 
-          />
-          <svg className="w-4 h-4 text-violet-300 absolute left-3 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+                <input 
+                    name="url" 
+                    type="url" 
+                    placeholder="https://farcaster.xyz/miniapps/..." 
+                    required 
+                    value={appUrl}
+                    onChange={(e) => setAppUrl(e.target.value)}
+                    className={`p-3.5 pl-9 w-full border rounded-xl text-sm outline-none focus:ring-2 transition-all text-violet-900 placeholder:text-violet-300 ${
+                        urlError 
+                            ? 'bg-red-50 border-red-200 focus:ring-red-500/20 focus:border-red-500' 
+                            : isUrlVerified 
+                                ? 'bg-green-50 border-green-200 focus:ring-green-500/20 focus:border-green-500' 
+                                : 'bg-violet-50/50 border-violet-100 focus:ring-violet-500/20 focus:border-violet-500'
+                    }`} 
+                />
+                <svg className={`w-4 h-4 absolute left-3 top-3.5 transition-colors ${urlError ? 'text-red-400' : isUrlVerified ? 'text-green-500' : 'text-violet-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+            </div>
+            <button 
+                type="button"
+                onClick={checkUrlAvailability}
+                // FIX: Added strict boolean check (!!appUrl) to satisfy Typescript
+                disabled={!!urlError || !appUrl || verifyingUrl || isUrlVerified}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                    isUrlVerified 
+                        ? 'bg-green-100 text-green-700 cursor-default' 
+                        : urlError
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-violet-100 text-violet-600 hover:bg-violet-200'
+                }`}
+            >
+                {verifyingUrl ? "Checking..." : isUrlVerified ? "Available" : "Verify"}
+            </button>
+          </div>
+          
+          {/* Validation Message */}
+          {urlError && (
+            <p className="text-[10px] text-red-500 ml-1 mt-1 font-medium animate-pulse">
+                {urlError}
+            </p>
+          )}
+          {!urlError && !isUrlVerified && (
+             <p className="text-[10px] text-violet-400 ml-1 mt-1">
+                Tip: Open your app, click "..." then "Copy link to mini app"
+            </p>
+          )}
         </div>
-        <p className="text-[10px] text-violet-400 ml-1 -mt-2">
-          Tip: Open your app, click "..." then "Copy link to mini app"
-        </p>
         
-        {/* --- ICON URL & PREVIEW --- */}
         <div className="flex gap-4 items-start">
           <div className="flex-1">
             <input 
@@ -250,7 +354,6 @@ export default function ListAppForm() {
               className="p-3.5 bg-violet-50/50 border border-violet-100 rounded-xl text-sm w-full outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all text-violet-900 placeholder:text-violet-300" 
             />
           </div>
-          {/* PREVIEW BOX */}
           <div className="w-12 h-12 rounded-xl border border-violet-100 bg-violet-50/50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
             {iconUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -271,10 +374,11 @@ export default function ListAppForm() {
         </select>
 
         <button 
-          disabled={loading} 
+          // FIX: Ensure expression returns boolean (added !!appUrl)
+          disabled={loading || !!urlError || (!!appUrl && !isUrlVerified)}
           type="submit" 
           className={`p-4 rounded-xl font-bold text-white text-sm shadow-lg shadow-violet-600/30 active:scale-95 transition-all flex justify-center items-center gap-2 ${
-            pendingTxHash ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:to-indigo-700'
+            pendingTxHash ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
           {loading && (
