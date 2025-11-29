@@ -4,7 +4,7 @@
     "version": "1",
     "iconUrl": "https://marketplace-lovat-zeta.vercel.app/icon.png",
     "homeUrl": "https://marketplace-lovat-zeta.vercel.app",
-    "imageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
+    "imageUrl": "https://marketplace-lovat-zeta.vercel.app/icon.png",
     "buttonTitle": "Explore Apps",
     "splashImageUrl": "https://marketplace-lovat-zeta.vercel.app/splash.png",
     "splashBackgroundColor": "#ffffff",
@@ -19,8 +19,7 @@
       "miniapp",
       "store",
       "marketplace",
-      "mart",
-      "miniapps"
+      "mart"
     ],
     "heroImageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
     "tagline": "Where MiniApps Take Off",
