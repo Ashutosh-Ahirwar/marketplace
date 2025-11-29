@@ -1,7 +1,7 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { MiniApp } from '@/types' 
-import { useState, useRef } from 'react'; // Added useRef
+import { useState, useRef, useEffect } from 'react';
 import OpenAppButton from './OpenAppButton';
 import { MARKETPLACE_CONFIG } from '@/lib/config';
 import { useRouter } from 'next/navigation';
@@ -14,42 +14,73 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  const [isPaused, setIsPaused] = useState(false); // Pause auto-play interaction
   
-  // Use ref to calculate scroll position more accurately if needed
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- AUTO-PLAY LOGIC ---
+  useEffect(() => {
+    // Don't auto-play if paused (user interacting)
+    if (isPaused) return;
+
+    const interval = setInterval(() => {
+      if (scrollContainerRef.current) {
+        const nextIndex = (activeIndex + 1) % featuredApps.length;
+        
+        // Find the specific child element to scroll to
+        const child = scrollContainerRef.current.children[nextIndex] as HTMLElement;
+        
+        if (child) {
+          // Account for the padding-left of the container (16px / 1rem from px-4)
+          // to align the item perfectly in the view
+          const scrollPos = child.offsetLeft - 16; 
+          
+          scrollContainerRef.current.scrollTo({
+            left: scrollPos,
+            behavior: 'smooth'
+          });
+        }
+      }
+    }, 4000); // 4 Seconds per slide
+
+    return () => clearInterval(interval);
+  }, [activeIndex, isPaused, featuredApps.length]);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const scrollLeft = scrollContainerRef.current.scrollLeft;
       const width = scrollContainerRef.current.offsetWidth;
-      // Calculate index based on center of scroll view
+      // Calculate index (width accounts for the visible area)
       const index = Math.round(scrollLeft / width);
-      setActiveIndex(index);
+      
+      if (index !== activeIndex && index >= 0 && index < featuredApps.length) {
+        setActiveIndex(index);
+      }
     }
   };
 
-  // NEW: Handle Card Click for Navigation
+  // --- NAVIGATION HANDLER ---
   const handleAppClick = async (app: MiniApp) => {
     try {
       const ctx = await sdk.context;
       
-      // Bookmark Check (Consistent with OpenAppButton)
       if (ctx?.client && !ctx.client.added) {
         try { await sdk.actions.addMiniApp(); } catch (e) {}
       }
 
-      // Analytics
       console.log(`[Analytics] Open Featured - FID: ${ctx?.user?.fid || 0}, App: ${app.id}`);
-      
-      // Open App
       await sdk.actions.openMiniApp({ url: app.url });
     } catch (e) {
       console.error("Navigation failed", e);
     }
   };
 
+  // --- RENTAL HANDLER ---
   const rentSlot = async (slotIndex: number) => {
     setLoadingIndex(slotIndex);
+    // Pause auto-scroll while interacting with rent button
+    setIsPaused(true); 
+    
     try {
       const ctx = await sdk.context;
       const user = ctx?.user;
@@ -73,32 +104,39 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         else throw new Error(data.error);
       }
     } catch (error: any) { alert(`Error: ${error.message}`); } 
-    finally { setLoadingIndex(null); }
+    finally { 
+      setLoadingIndex(null); 
+      setIsPaused(false); // Resume
+    }
   };
 
   return (
-    <div className="mb-8 relative w-full"> {/* Ensure full width relative container */}
+    <div 
+      className="mb-8 relative w-full"
+      // Pause on hover/touch to let user read/interact
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => {
+        // Resume after a short delay to allow scrolling to settle
+        setTimeout(() => setIsPaused(false), 2000);
+      }}
+    > 
       <div className="flex justify-between items-end mb-3 px-1">
         <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Launchpad</h2>
         <span className="text-xs font-mono text-violet-400 bg-violet-100 px-2 py-0.5 rounded-md">{activeIndex + 1} / 6</span>
       </div>
 
-      {/* SCROLL CONTAINER FIXES:
-         1. ref={scrollContainerRef} for JS access
-         2. w-full to ensure it takes space
-         3. -mx-4 px-4 to allow full-bleed scrolling on mobile while keeping padding
-      */}
       <div 
         ref={scrollContainerRef}
         className="flex w-full overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar -mx-4 px-4" 
         onScroll={handleScroll}
-        style={{ scrollBehavior: 'smooth' }} // Smooth scrolling for programmatic moves
+        style={{ scrollBehavior: 'smooth' }}
       >
         {featuredApps.map((app, index) => (
-          // min-w-full ensures one card takes up the whole view width (minus padding)
           <div key={index} className="min-w-full snap-center pl-1 pr-1 first:pl-4 last:pr-4">
             {app ? (
-              // OCCUPIED SLOT - Now Fully Clickable
+              // OCCUPIED SLOT
               <div 
                 onClick={() => handleAppClick(app)}
                 className="bg-gradient-to-br from-[#5D45BA] to-[#3B2885] p-6 rounded-3xl text-white shadow-xl shadow-violet-500/20 h-48 flex flex-col relative overflow-hidden ring-1 ring-white/20 cursor-pointer active:scale-[0.98] transition-transform"
@@ -116,13 +154,12 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                 </div>
                 <p className="text-xs text-violet-100 line-clamp-2 mb-3 leading-relaxed">{app.description}</p>
                 
-                {/* Stop propagation on the button so we don't trigger double clicks, though logic is safe regardless */}
                 <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
                     <OpenAppButton url={app.url} appId={app.id} variant="light" />
                 </div>
               </div>
             ) : (
-              // EMPTY SLOT - Rent Me
+              // EMPTY SLOT
               <div className="bg-white border-2 border-dashed border-violet-200 p-6 rounded-3xl h-48 flex flex-col items-center justify-center text-center shadow-sm relative group hover:border-violet-400 transition-colors">
                 <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1.5 mt-2">Slot #{index + 1}</span>
                 <h3 className="text-violet-900 font-bold text-lg mb-0.5">Launch Your App</h3>
