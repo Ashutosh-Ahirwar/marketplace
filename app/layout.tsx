@@ -15,37 +15,53 @@ const geistMono = Geist_Mono({
 });
 
 // --- DEFINE APP URL ---
-// Replace this with your actual deployed Vercel URL
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://marketplace-lovat-zeta.vercel.app/";
+// Matches 'homeUrl' in JSON
+const APP_URL = "https://marketplace-lovat-zeta.vercel.app";
 
 const miniAppEmbed = {
   version: "1",
-  imageUrl: "https://marketplace-lovat-zeta.vercel.app/hero.png", // Must be 3:2 aspect ratio
+  // Per JSON 'imageUrl' -> "icon.png"
+  imageUrl: `${APP_URL}/icon.png`,
   button: {
+    // Per JSON 'buttonTitle' -> "Explore Apps"
     title: "Explore Apps",
     action: {
-      type: "launch_frame", // "launch_frame" is used for backward compatibility with older clients
-      name: "Explore Apps",
-      url: "https://marketplace-lovat-zeta.vercel.app",
-      splashImageUrl: "https://marketplace-lovat-zeta.vercel.app/splash.png",
+      type: "launch_miniapp",
+      // Per JSON 'name' -> "MiniApp Mart"
+      name: "MiniApp Mart",
+      // Per JSON 'homeUrl'
+      url: APP_URL,
+      // Per JSON 'splashImageUrl' -> "splash.png"
+      splashImageUrl: `${APP_URL}/splash.png`,
+      // Per JSON 'splashBackgroundColor' -> "#ffffff"
       splashBackgroundColor: "#ffffff",
     },
   },
 };
 
 export const metadata: Metadata = {
+  // Per JSON 'ogTitle'
   title: "MiniApp Mart",
-  description: "Discover and List Farcaster Mini Apps.",
-  // 2. Add OpenGraph tags for better preview on other platforms (like Discord/Twitter)
+  // Per JSON 'ogDescription'
+  description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
   openGraph: {
     title: "MiniApp Mart",
-    description: "The app store for Farcaster.",
-    images: ["https://marketplace-lovat-zeta.vercel.app/hero.png"],
+    description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
+    // Per JSON 'ogImageUrl' -> "hero.png"
+    images: [`${APP_URL}/hero.png`],
   },
-  // 3. Add the Farcaster specific meta tags
   other: {
     "fc:miniapp": JSON.stringify(miniAppEmbed),
-    "fc:frame": JSON.stringify(miniAppEmbed), // Required for legacy support
+    "fc:frame": JSON.stringify({
+      ...miniAppEmbed,
+      button: {
+        ...miniAppEmbed.button,
+        action: {
+          ...miniAppEmbed.button.action,
+          type: "launch_frame", // Legacy compatibility
+        },
+      },
+    }),
   },
 };
 
