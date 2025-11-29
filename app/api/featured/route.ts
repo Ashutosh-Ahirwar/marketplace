@@ -30,20 +30,24 @@ export async function POST(req: Request) {
     const { txHash, fid, slotIndex, appId, auth } = await req.json();
 
     // 0. Security Check
-    if (!auth || !auth.signature) {
+    // Expect 'token' from Quick Auth
+    if (!auth || !auth.token) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
 
-    // Verify the user actually signed this request AND recover their address
-    const userWalletAddress = await verifyUserAuth({ 
-      fid: fid, 
-      signature: auth.signature, 
-      message: auth.message, 
-      nonce: auth.nonce 
+    // Verify User Identity via Quick Auth
+    await verifyUserAuth({ 
+      token: auth.token,
+      fid: fid
     });
 
-    // 1. Verify Payment AND Sender (Anti-Hijacking)
-    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.featuredUsdc, userWalletAddress as string);
+    // NOTE: Since we switched to Quick Auth (JWT), we don't get the wallet address directly 
+    // from the signature recovery like we did with SIWF.
+    // For now, we verify the payment exists and matches the amount/recipient.
+    // If strict sender verification is required, you'd need to fetch user's verified addresses via Farcaster API.
+    
+    // 1. Verify Payment
+    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.featuredUsdc);
 
     // 2. Check Availability (Robust Check)
     const existingSlot = await prisma.featuredSlot.findUnique({

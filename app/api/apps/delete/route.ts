@@ -6,17 +6,16 @@ export async function POST(req: Request) {
   try {
     const { appId, fid, auth } = await req.json();
 
-    // 0. Security Check: Validate Signature
-    if (!auth || !auth.signature) {
-      return NextResponse.json({ error: "Unauthorized: Missing signature" }, { status: 401 });
+    // 0. Security Check: Validate Quick Auth Token
+    if (!auth || !auth.token) {
+      return NextResponse.json({ error: "Unauthorized: Missing token" }, { status: 401 });
     }
     
-    // Verify user identity
+    // Verify user identity using Quick Auth
+    // This helper now expects { token, fid }
     await verifyUserAuth({ 
-      fid: fid, 
-      signature: auth.signature, 
-      message: auth.message, 
-      nonce: auth.nonce 
+      token: auth.token,
+      fid: fid
     });
 
     // 1. Verify Ownership

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.1",
+    "@farcaster/quick-auth": "^0.0.8",
     "@prisma/client": "^5.19.1",
     "@supabase/supabase-js": "^2.86.0",
     "next": "16.0.5",

@@ -2,7 +2,6 @@
 import { sdk } from '@farcaster/miniapp-sdk'
 import { MiniApp } from '@/types' 
 import { useState, useRef, useEffect } from 'react';
-// Use relative path for reliability
 import OpenAppButton from './OpenAppButton';
 import { MARKETPLACE_CONFIG } from '../lib/config';
 import { useRouter } from 'next/navigation';
@@ -17,16 +16,12 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   
-  // Custom Notification State
   const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
-
-  // New State for Selection Logic
   const [myApps, setMyApps] = useState<MiniApp[]>([]);
   const [showSelector, setShowSelector] = useState<number | null>(null); 
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to show custom notifications
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -36,11 +31,10 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
     if (isPaused) return;
     const interval = setInterval(() => {
       scrollToIndex(activeIndex + 1);
-    }, 5000); // Slowed down slightly for better UX
+    }, 5000);
     return () => clearInterval(interval);
   }, [activeIndex, isPaused, featuredApps.length]);
 
-  // Fetch User's Apps on Mount
   useEffect(() => {
     const fetchMyApps = async () => {
       try {
@@ -126,13 +120,11 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         return; 
       }
 
-      const nonce = `feature-slot-${slotIndex}-${Date.now()}`;
-      const signResult = await sdk.actions.signIn({ nonce });
-      
-      if (!signResult.signature || !signResult.message) {
-        throw new Error("Failed to sign request");
-      }
+      // 1. GET AUTH TOKEN (Quick Auth - Silent)
+      const { token } = await sdk.quickAuth.getToken();
+      if (!token) throw new Error("Failed to authenticate.");
 
+      // 2. SEND TOKEN
       const result = await sdk.actions.sendToken({
         token: MARKETPLACE_CONFIG.tokens.baseUsdc,
         amount: MARKETPLACE_CONFIG.prices.featuredUsdc,
@@ -141,6 +133,8 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
 
       if (result.success) {
         const txHash = result.send.transaction;
+        
+        // 3. CALL API WITH AUTH TOKEN
         const res = await fetch('/api/featured', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -149,11 +143,7 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
             fid: user.fid, 
             slotIndex, 
             appId,
-            auth: {
-                signature: signResult.signature,
-                message: signResult.message,
-                nonce: nonce 
-            }
+            auth: { token } // Using Token instead of Signature
           })
         });
         const data = await res.json();
@@ -195,10 +185,7 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         </div>
       </div>
 
-      {/* Carousel Container Wrapper for Relative Positioning of Buttons */}
       <div className="relative">
-        
-        {/* Navigation Buttons - Now Vertically Centered on the Cards */}
         <button 
           onClick={handlePrev}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white text-violet-600 p-2 rounded-full shadow-md border border-violet-100 hover:scale-110 active:scale-95 transition-all -ml-2"
@@ -215,26 +202,22 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
         </button>
 
-        {/* Scrollable Area */}
         <div 
           ref={scrollContainerRef}
-          className="flex w-full overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar px-1" // Adjusted padding
+          className="flex w-full overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar px-1"
           onScroll={handleScroll}
           style={{ scrollBehavior: 'smooth' }}
         >
           {featuredApps.map((app, index) => (
             <div key={index} className="min-w-full snap-center">
               {app ? (
-                // OCCUPIED SLOT
                 <div 
                   onClick={() => handleAppClick(app)}
                   className="bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 p-6 rounded-3xl text-white shadow-lg shadow-violet-500/20 h-52 flex flex-col relative overflow-hidden cursor-pointer active:scale-[0.98] transition-transform border border-white/10"
                 >
-                  {/* Glassmorphism Badge */}
                   <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/20 text-amber-300 shadow-sm">
                     FEATURED
                   </div>
-                  
                   <div className="flex items-center gap-4 mb-3 mt-1">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl bg-white/10 shadow-md object-cover ring-2 ring-white/20" />
@@ -243,19 +226,14 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                       <p className="text-violet-200 text-xs font-medium bg-black/20 px-2 py-0.5 rounded-lg inline-block">by @{app.authorUsername}</p>
                     </div>
                   </div>
-                  
                   <p className="text-xs text-violet-100 line-clamp-2 mb-4 leading-relaxed opacity-90">{app.description}</p>
-                  
                   <div className="mt-auto z-10" onClick={(e) => e.stopPropagation()}>
                       <OpenAppButton url={app.url} appId={app.id} variant="light" />
                   </div>
-                  
-                  {/* Decorative Background Elements */}
                   <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                   <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-400/20 rounded-full blur-xl"></div>
                 </div>
               ) : (
-                // EMPTY SLOT
                 <div className="bg-white border-2 border-dashed border-violet-200 p-6 rounded-3xl h-52 flex flex-col items-center justify-center text-center shadow-sm relative group hover:border-violet-400 hover:bg-violet-50/30 transition-all">
                   <div className="bg-violet-100 text-violet-500 w-10 h-10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -295,7 +273,6 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         </div>
       </div>
       
-      {/* Pagination Dots */}
       <div className="flex justify-center gap-2 mt-2">
         {featuredApps.map((_, i) => (
           <button 

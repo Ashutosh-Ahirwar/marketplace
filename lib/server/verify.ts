@@ -13,7 +13,6 @@ const USDC_TRANSFER_EVENT = parseAbiItem(
   'event Transfer(address indexed from, address indexed to, uint256 value)'
 );
 
-// Added optional 'expectedSender' argument
 export async function verifyPayment(txHash: string, expectedAmount: string, expectedSender?: string) {
   // 1. Check DB for Replay Attacks
   const existingTx = await prisma.transaction.findUnique({ where: { txHash } });
@@ -38,8 +37,8 @@ export async function verifyPayment(txHash: string, expectedAmount: string, expe
   });
 
   const to = decoded.args.to?.toLowerCase();
-  const from = decoded.args.from?.toLowerCase(); // Get the sender
-  const value = decoded.args.value; // BigInt
+  const from = decoded.args.from?.toLowerCase(); 
+  const value = decoded.args.value; 
 
   if (to !== MARKETPLACE_CONFIG.recipientAddress.toLowerCase()) {
     throw new Error("Payment recipient does not match marketplace wallet.");
@@ -49,7 +48,7 @@ export async function verifyPayment(txHash: string, expectedAmount: string, expe
     throw new Error(`Insufficient payment amount. Expected ${expectedAmount}, got ${value}`);
   }
 
-  // 6. ANTI-HIJACKING CHECK
+  // 6. ANTI-HIJACKING CHECK (Optional if sender provided)
   if (expectedSender && from !== expectedSender.toLowerCase()) {
     throw new Error(`Payment hijacking detected! Wallet ${from} paid, but authenticated user is ${expectedSender}`);
   }

@@ -12,12 +12,11 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'listings' | 'history'>('listings');
   const [isLoading, setIsLoading] = useState(true);
   
-  // Custom UI States to replace native alerts/confirms
+  // Custom UI States
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
 
-  // Helper to show custom notifications
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -53,12 +52,9 @@ export default function ProfilePage() {
 
   const initiateDelete = (appId: string) => {
     if (confirmingId === appId) {
-      // User clicked twice, proceed to delete immediately
       handleDelete(appId);
     } else {
-      // First click, ask for confirmation
       setConfirmingId(appId);
-      // Auto-reset confirmation after 3 seconds if not clicked
       setTimeout(() => setConfirmingId(null), 3000);
     }
   };
@@ -66,42 +62,30 @@ export default function ProfilePage() {
   const handleDelete = async (appId: string) => {
     if (!user) return;
     
-    // Clear confirmation state and set loading state
     setConfirmingId(null);
     setIsDeleting(appId);
 
     try {
-      const nonce = `del${Date.now()}`;
+      // ---------------------------------------------------------
+      // SWITCH TO QUICK AUTH (Seamless, no popup if already auth'd)
+      // ---------------------------------------------------------
       
-      console.log("Requesting signature...");
-      
-      // We create a promise that rejects after 15 seconds to prevent indefinite hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Signature request timed out. Please check your wallet.")), 15000)
-      );
+      // This gets a signed JWT. If valid/cached, it returns instantly.
+      // If expired/missing, it might trigger a lightweight check or popup.
+      const { token } = await sdk.quickAuth.getToken();
 
-      // Request signature
-      const signPromise = sdk.actions.signIn({ nonce });
-
-      // @ts-ignore - Promise.race to handle timeouts
-      const signResult: any = await Promise.race([signPromise, timeoutPromise]);
-
-      if (!signResult || !signResult.signature || !signResult.message) {
-        throw new Error("Signature failed. You must sign to verify ownership.");
+      if (!token) {
+        throw new Error("Failed to get authentication token");
       }
 
-      // 3. Send Authenticated Request
+      // Send the token to the backend
       const res = await fetch('/api/apps/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           appId, 
           fid: user.fid,
-          auth: {
-            signature: signResult.signature,
-            message: signResult.message,
-            nonce: nonce 
-          }
+          auth: { token } // Sending JWT token instead of raw signature
         })
       });
       
@@ -115,11 +99,7 @@ export default function ProfilePage() {
       }
     } catch (e: any) {
       console.error(e);
-      // Simplify error message for user
-      const msg = e.message?.includes("rejected") 
-        ? "Signature rejected." 
-        : (e.message || "Error deleting app. Please try again.");
-      showToast(msg, 'error');
+      showToast(e.message || "Error deleting app.", 'error');
     } finally {
       setIsDeleting(null);
     }

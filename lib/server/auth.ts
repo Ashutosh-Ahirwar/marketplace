@@ -1,23 +1,37 @@
-import { verifyMessage } from 'viem';
+import { createClient, Errors } from '@farcaster/quick-auth';
 
-export async function verifyUserAuth(payload: { fid: number, signature: string, message: string, nonce: string }) {
-  if (!payload.signature || !payload.message) {
-    throw new Error("Missing signature or message");
+// Initialize the Quick Auth client
+const client = createClient();
+
+export async function verifyUserAuth(payload: { token: string, fid: number }) {
+  if (!payload.token) {
+    throw new Error("Missing authentication token");
   }
 
-  // 1. Recover the address that signed the message
-  const valid = await verifyMessage({
-    address: payload.message.split('Address: ')[1]?.split('\n')[0] as `0x${string}`,
-    message: payload.message,
-    signature: payload.signature as `0x${string}`,
-  });
+  try {
+    // Verify the JWT against Farcaster's public keys
+    const result = await client.verifyJwt({
+      token: payload.token,
+      // CRITICAL FIX: 'domain' is required by the SDK.
+      // It should match the domain where your app is hosted.
+      // For local development, this might differ, but in production, it's your app's URL.
+      // If you are using Vercel, you can often use process.env.VERCEL_URL or hardcode your production domain.
+      domain: "marketplace-lovat-zeta.vercel.app" 
+    });
 
-  if (!valid) throw new Error("Invalid signature");
-  
-  // 2. Verify Nonce to prevent replay attacks
-  if (!payload.message.includes(payload.nonce)) throw new Error("Invalid nonce");
+    // Security Check: Does the token belong to the user claiming to perform the action?
+    if (result.sub !== payload.fid) {
+      throw new Error(`Token FID (${result.sub}) does not match request FID (${payload.fid})`);
+    }
 
-  // Return recovered address for optional further checks
-  const recoveredAddress = payload.message.split('Address: ')[1]?.split('\n')[0].toLowerCase();
-  return recoveredAddress; 
+    // Return true if valid
+    return true;
+
+  } catch (e) {
+    if (e instanceof Errors.InvalidTokenError) {
+      throw new Error("Invalid or expired authentication token");
+    }
+    // Re-throw other errors
+    throw e;
+  }
 }
