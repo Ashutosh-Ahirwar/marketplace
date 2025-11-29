@@ -6,20 +6,15 @@ import { MARKETPLACE_CONFIG } from '@/lib/config'
 
 export default function ListAppForm() {
   const [loading, setLoading] = useState(false);
-  // NEW: Granular status to show user exactly what is happening
   const [statusMessage, setStatusMessage] = useState<string>(""); 
   
   const [user, setUser] = useState<{ fid: number; username: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
-  // Form State
   const [iconUrl, setIconUrl] = useState('');
   const [appName, setAppName] = useState('');
-  
-  // Input Constraints
   const [descCount, setDescCount] = useState(0);
 
-  // Recovery State
   const [pendingTxHash, setPendingTxHash] = useState<string | null>(null);
   const [errorState, setErrorState] = useState<string | null>(null);
 
@@ -53,19 +48,15 @@ export default function ListAppForm() {
 
   const processListing = async (txHash: string, formData: FormData) => {
     try {
-      setStatusMessage("Verifying listing..."); // Feedback step 2
+      setStatusMessage("Verifying listing..."); 
       
       if (!user) throw new Error("User context missing");
 
-      // 1. GENERATE SIGNATURE
-      const tokenPromise = sdk.quickAuth.getToken();
-      const timeoutPromise = new Promise<{token: string}>((_, reject) => 
-        setTimeout(() => reject(new Error("Auth request timed out")), 10000)
-      );
-
-      const { token } = await Promise.race([tokenPromise, timeoutPromise]);
+      // 1. GENERATE SIGNATURE (Quick Auth)
+      // Note: We await this safely.
+      const tokenResult = await sdk.quickAuth.getToken();
       
-      if (!token) {
+      if (!tokenResult || !tokenResult.token) {
         throw new Error("Failed to authenticate. Please try again.");
       }
 
@@ -85,14 +76,14 @@ export default function ListAppForm() {
           txHash, 
           appData, 
           user,
-          auth: { token }
+          auth: { token: tokenResult.token }
         })
       });
 
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      setStatusMessage("Success!"); // Feedback step 3
+      setStatusMessage("Success!"); 
       alert("Success! App Listed.");
       window.location.href = '/profile'; 
       
@@ -100,69 +91,70 @@ export default function ListAppForm() {
       console.error("Listing failed", e);
       setPendingTxHash(txHash); 
       setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
-    } finally {
-        setLoading(false); 
-        setStatusMessage("");
-    }
+    } 
+    // IMPORTANT: We do NOT set loading=false here if this was called from handleListApp
+    // because handleListApp's finally block will handle it. 
+    // BUT since we are unsure of the call stack depth, it's safer to let the top-level handler manage 'loading'.
+    // However, to be safe for retry clicks (where handleListApp calls this directly), we will return true/false.
   };
 
   const handleListApp = async (formData: FormData) => {
+    // 1. Reset States
     setErrorState(null);
     setLoading(true);
     setStatusMessage("Initializing...");
 
-    const url = formData.get('url') as string;
-    
-    if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
-      setErrorState("Invalid Link. Please use the official Farcaster Universal Link.");
-      setLoading(false);
-      setStatusMessage("");
-      return;
-    }
-
-    if (!user) {
-      setErrorState("Please connect wallet.");
-      setLoading(false);
-      setStatusMessage("");
-      return;
-    }
-
     try {
+      const url = formData.get('url') as string;
+      
+      if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
+        throw new Error("Invalid Link. Please use the official Farcaster Universal Link.");
+      }
+
+      if (!user) {
+        throw new Error("Please connect wallet.");
+      }
+
+      // 2. Check for Pending Retry
       if (pendingTxHash) {
         setStatusMessage("Retrying submission...");
         await processListing(pendingTxHash, formData);
-        return;
+        return; // Exit, finally block will clean up
       }
 
-      setStatusMessage("Please confirm payment in wallet..."); // Feedback step 1
-
-      // 1. Request Payment
+      // 3. Request Payment
+      setStatusMessage("Please confirm payment in wallet..."); 
       const result = await sdk.actions.sendToken({
         token: MARKETPLACE_CONFIG.tokens.baseUsdc,
         amount: MARKETPLACE_CONFIG.prices.listingUsdc,
         recipientAddress: MARKETPLACE_CONFIG.recipientAddress, 
       });
 
-      // 2. Handle Result
+      // 4. Handle Result
       if (result.success) {
         setStatusMessage("Payment sent! Finalizing...");
+        // Pass the transaction hash to the backend
         await processListing(result.send.transaction, formData);
       } else {
-          setLoading(false);
-          setStatusMessage("");
-          if (result.reason === 'rejected_by_user') {
-             console.log("User cancelled payment");
-          } else {
-             setErrorState(`Transaction failed: ${result.error?.message || "Unknown error"}`);
-          }
+        // Handle Cancellation / Failure
+        if (result.reason === 'rejected_by_user') {
+           console.log("User cancelled payment");
+           // No error state needed, just stop loading
+        } else {
+           throw new Error(`Transaction failed: ${result.error?.message || "Unknown error"}`);
+        }
       }
+
     } catch (e: any) {
-      console.error("Transaction Exception:", e);
+      console.error("Transaction/Listing Exception:", e);
+      // Only show error if it wasn't a user rejection (sometimes throws instead of returning false)
+      if (!e.message?.toLowerCase().includes("rejected")) {
+        setErrorState(e.message || "Transaction failed. Please try again.");
+      }
+    } finally {
+      // 5. Global Cleanup
       setLoading(false);
       setStatusMessage("");
-      if (!e.message?.toLowerCase().includes("rejected")) {
-        setErrorState("Transaction failed. Please try again.");
-      }
     }
   };
 
