@@ -1,7 +1,7 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { MiniApp } from '@/types' 
-import { useState } from 'react';
+import { useState, useRef } from 'react'; // Added useRef
 import OpenAppButton from './OpenAppButton';
 import { MARKETPLACE_CONFIG } from '@/lib/config';
 import { useRouter } from 'next/navigation';
@@ -14,12 +14,18 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  
+  // Use ref to calculate scroll position more accurately if needed
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollLeft = e.currentTarget.scrollLeft;
-    const width = e.currentTarget.offsetWidth;
-    const index = Math.round(scrollLeft / width);
-    setActiveIndex(index);
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollLeft = scrollContainerRef.current.scrollLeft;
+      const width = scrollContainerRef.current.offsetWidth;
+      // Calculate index based on center of scroll view
+      const index = Math.round(scrollLeft / width);
+      setActiveIndex(index);
+    }
   };
 
   // NEW: Handle Card Click for Navigation
@@ -71,18 +77,26 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
   };
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 relative w-full"> {/* Ensure full width relative container */}
       <div className="flex justify-between items-end mb-3 px-1">
         <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Launchpad</h2>
         <span className="text-xs font-mono text-violet-400 bg-violet-100 px-2 py-0.5 rounded-md">{activeIndex + 1} / 6</span>
       </div>
 
+      {/* SCROLL CONTAINER FIXES:
+         1. ref={scrollContainerRef} for JS access
+         2. w-full to ensure it takes space
+         3. -mx-4 px-4 to allow full-bleed scrolling on mobile while keeping padding
+      */}
       <div 
-        className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar" 
+        ref={scrollContainerRef}
+        className="flex w-full overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar -mx-4 px-4" 
         onScroll={handleScroll}
+        style={{ scrollBehavior: 'smooth' }} // Smooth scrolling for programmatic moves
       >
         {featuredApps.map((app, index) => (
-          <div key={index} className="min-w-full snap-center">
+          // min-w-full ensures one card takes up the whole view width (minus padding)
+          <div key={index} className="min-w-full snap-center pl-1 pr-1 first:pl-4 last:pr-4">
             {app ? (
               // OCCUPIED SLOT - Now Fully Clickable
               <div 
