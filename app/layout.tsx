@@ -20,7 +20,7 @@ const APP_URL = "https://marketplace-lovat-zeta.vercel.app";
 
 const miniAppEmbed = {
   version: "1",
-  // Per JSON 'imageUrl' -> "icon.png"
+  // Per JSON 'imageUrl' -> "hero.png" (1200x800 is perfect 3:2 ratio)
   imageUrl: `${APP_URL}/hero.png`,
   button: {
     // Per JSON 'buttonTitle' -> "Explore Apps"
@@ -46,7 +46,9 @@ export const metadata: Metadata = {
   description: "Browse launch and share MiniApps from the Farcaster community all in one hub",
   openGraph: {
     title: "MiniApp Mart",
-    description: "Browse launch and share MiniApps from the Farcaster community all in one hub"
+    description: "Browse launch and share MiniApps from the Farcaster community all in one hub",
+    // Adding the hero image to standard OG tags as well for better compatibility
+    images: [`${APP_URL}/hero.png`], 
   },
   other: {
     // "fc:frame" is used for backward compatibility
