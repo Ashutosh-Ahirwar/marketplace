@@ -25,7 +25,7 @@
     "heroImageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
     "tagline": "Where MiniApps Take Off",
     "ogTitle": "MiniApp Mart",
-    "ogDescription": "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
+    "ogDescription": "Browse launch and share MiniApps from the Farcaster community all in one hub",
     "ogImageUrl": "https://marketplace-lovat-zeta.vercel.app/hero.png",
     "requiredChains": [
       "eip155:8453"

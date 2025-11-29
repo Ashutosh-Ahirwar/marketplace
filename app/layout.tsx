@@ -43,10 +43,10 @@ export const metadata: Metadata = {
   // Per JSON 'ogTitle'
   title: "MiniApp Mart",
   // Per JSON 'ogDescription'
-  description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub.",
+  description: "Browse launch and share MiniApps from the Farcaster community all in one hub",
   openGraph: {
     title: "MiniApp Mart",
-    description: "Browse, launch, and share MiniApps from the Farcaster community — all in one hub."
+    description: "Browse launch and share MiniApps from the Farcaster community all in one hub"
   },
   other: {
     // "fc:frame" is used for backward compatibility
