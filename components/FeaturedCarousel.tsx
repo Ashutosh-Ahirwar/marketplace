@@ -22,6 +22,26 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
     setActiveIndex(index);
   };
 
+  // NEW: Handle Card Click for Navigation
+  const handleAppClick = async (app: MiniApp) => {
+    try {
+      const ctx = await sdk.context;
+      
+      // Bookmark Check (Consistent with OpenAppButton)
+      if (ctx?.client && !ctx.client.added) {
+        try { await sdk.actions.addMiniApp(); } catch (e) {}
+      }
+
+      // Analytics
+      console.log(`[Analytics] Open Featured - FID: ${ctx?.user?.fid || 0}, App: ${app.id}`);
+      
+      // Open App
+      await sdk.actions.openMiniApp({ url: app.url });
+    } catch (e) {
+      console.error("Navigation failed", e);
+    }
+  };
+
   const rentSlot = async (slotIndex: number) => {
     setLoadingIndex(slotIndex);
     try {
@@ -57,16 +77,23 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         <span className="text-xs font-mono text-violet-400 bg-violet-100 px-2 py-0.5 rounded-md">{activeIndex + 1} / 6</span>
       </div>
 
-      <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar" onScroll={handleScroll}>
+      <div 
+        className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 no-scrollbar" 
+        onScroll={handleScroll}
+      >
         {featuredApps.map((app, index) => (
           <div key={index} className="min-w-full snap-center">
             {app ? (
-              // OCCUPIED SLOT - Space Purple Theme
-              <div className="bg-gradient-to-br from-[#5D45BA] to-[#3B2885] p-6 rounded-3xl text-white shadow-xl shadow-violet-500/20 h-48 flex flex-col relative overflow-hidden ring-1 ring-white/20">
+              // OCCUPIED SLOT - Now Fully Clickable
+              <div 
+                onClick={() => handleAppClick(app)}
+                className="bg-gradient-to-br from-[#5D45BA] to-[#3B2885] p-6 rounded-3xl text-white shadow-xl shadow-violet-500/20 h-48 flex flex-col relative overflow-hidden ring-1 ring-white/20 cursor-pointer active:scale-[0.98] transition-transform"
+              >
                 <div className="absolute top-0 right-0 bg-white/10 backdrop-blur-md px-3 py-1 rounded-bl-2xl text-[10px] font-bold border-l border-b border-white/10 text-amber-300">
                   FEATURED
                 </div>
                 <div className="flex items-center gap-4 mb-3 mt-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={app.iconUrl} alt={app.name} className="w-14 h-14 rounded-xl bg-white/10 shadow-md object-cover ring-2 ring-white/20" />
                   <div>
                     <h3 className="text-lg font-bold leading-tight">{app.name}</h3>
@@ -74,7 +101,11 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                   </div>
                 </div>
                 <p className="text-xs text-violet-100 line-clamp-2 mb-3 leading-relaxed">{app.description}</p>
-                <div className="mt-auto"><OpenAppButton url={app.url} appId={app.id} variant="light" /></div>
+                
+                {/* Stop propagation on the button so we don't trigger double clicks, though logic is safe regardless */}
+                <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
+                    <OpenAppButton url={app.url} appId={app.id} variant="light" />
+                </div>
               </div>
             ) : (
               // EMPTY SLOT - Rent Me
