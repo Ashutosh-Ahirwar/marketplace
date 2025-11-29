@@ -9,7 +9,7 @@
     "splashImageUrl": "https://marketplace-lovat-zeta.vercel.app/splash.png",
     "splashBackgroundColor": "#ffffff",
     "webhookUrl": "https://marketplace-lovat-zeta.vercel.app/api/webhook",
-    "description": "Discover & List Farcaster Apps",
+    "description": "Discover and List MiniApps",
     "primaryCategory": "utility",
     "screenshotUrls": [
       "https://marketplace-lovat-zeta.vercel.app/screenshot1.png"
