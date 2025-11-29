@@ -50,42 +50,48 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const initiateDelete = (appId: string) => {
+  const initiateDelete = async (appId: string) => {
     if (confirmingId === appId) {
-      handleDelete(appId);
+      // User clicked twice, proceed to delete immediately
+      await handleDelete(appId);
     } else {
+      // First click, ask for confirmation
       setConfirmingId(appId);
-      setTimeout(() => setConfirmingId(null), 3000);
+      // Auto-reset confirmation after 3 seconds if not clicked
+      setTimeout(() => {
+          setConfirmingId((prev) => (prev === appId ? null : prev));
+      }, 3000);
     }
   };
 
   const handleDelete = async (appId: string) => {
     if (!user) return;
     
+    // Clear confirmation state and set loading state immediately
     setConfirmingId(null);
     setIsDeleting(appId);
 
     try {
-      // ---------------------------------------------------------
-      // SWITCH TO QUICK AUTH (Seamless, no popup if already auth'd)
-      // ---------------------------------------------------------
-      
-      // This gets a signed JWT. If valid/cached, it returns instantly.
-      // If expired/missing, it might trigger a lightweight check or popup.
-      const { token } = await sdk.quickAuth.getToken();
+      // 1. Get Token with a safety timeout
+      const tokenPromise = sdk.quickAuth.getToken();
+      const timeoutPromise = new Promise<{token: string}>((_, reject) => 
+        setTimeout(() => reject(new Error("Auth request timed out. Please try refreshing.")), 8000)
+      );
 
-      if (!token) {
-        throw new Error("Failed to get authentication token");
+      const result = await Promise.race([tokenPromise, timeoutPromise]);
+      
+      if (!result || !result.token) {
+        throw new Error("Failed to authenticate. Please try again.");
       }
 
-      // Send the token to the backend
+      // 2. Send Request with Token
       const res = await fetch('/api/apps/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           appId, 
           fid: user.fid,
-          auth: { token } // Sending JWT token instead of raw signature
+          auth: { token: result.token } 
         })
       });
       
@@ -93,14 +99,18 @@ export default function ProfilePage() {
 
       if (res.ok) {
         showToast("Listing deleted successfully.", 'success');
+        // Optimistically remove from UI
+        setMyListings(prev => prev.filter(app => app.id !== appId));
+        // Refresh background data
         await refreshData(user.fid);
       } else {
-        showToast(`Failed to delete: ${data.error || 'Unknown error'}`, 'error');
+        throw new Error(data.error || 'Failed to delete listing');
       }
     } catch (e: any) {
       console.error(e);
       showToast(e.message || "Error deleting app.", 'error');
     } finally {
+      // CRITICAL: Always reset loading state so button isn't stuck
       setIsDeleting(null);
     }
   };

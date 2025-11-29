@@ -54,15 +54,10 @@ export default function ListAppForm() {
 
       // 1. GENERATE SIGNATURE
       // Updated to use Quick Auth token for consistency and better UX
-      // We add a timeout here too just in case
-      const tokenPromise = sdk.quickAuth.getToken();
-      const timeoutPromise = new Promise<{token: string}>((_, reject) => 
-        setTimeout(() => reject(new Error("Auth request timed out")), 10000)
-      );
-
-      const { token } = await Promise.race([tokenPromise, timeoutPromise]);
+      // Removed the explicit timeout to rely on the SDK's internal handling
+      const result = await sdk.quickAuth.getToken();
       
-      if (!token) {
+      if (!result || !result.token) {
         throw new Error("Failed to authenticate. Please try again.");
       }
 
@@ -84,7 +79,7 @@ export default function ListAppForm() {
           user,
           // 2. SEND AUTH
           auth: {
-            token: token
+            token: result.token
           }
         })
       });
