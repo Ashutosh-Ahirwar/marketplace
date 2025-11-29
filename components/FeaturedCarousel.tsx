@@ -3,7 +3,7 @@ import { sdk } from '@farcaster/miniapp-sdk'
 import { MiniApp } from '@/types' 
 import { useState, useRef, useEffect } from 'react';
 import OpenAppButton from './OpenAppButton';
-import { MARKETPLACE_CONFIG } from '@/lib/config';
+import { MARKETPLACE_CONFIG } from '../lib/config';
 import { useRouter } from 'next/navigation';
 
 interface FeaturedCarouselProps {
@@ -49,7 +49,10 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
 
   const scrollToIndex = (index: number) => {
     if (scrollContainerRef.current) {
-      const targetIndex = (index + featuredApps.length) % featuredApps.length;
+      // Handle wrap-around math
+      const len = featuredApps.length;
+      const targetIndex = (index % len + len) % len; // Ensures positive modulo
+      
       const child = scrollContainerRef.current.children[targetIndex] as HTMLElement;
       if (child) {
         const scrollPos = child.offsetLeft - 16; 
@@ -67,6 +70,18 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         setActiveIndex(index);
       }
     }
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPaused(true);
+    scrollToIndex(activeIndex - 1);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPaused(true);
+    scrollToIndex(activeIndex + 1);
   };
 
   const handleAppClick = async (app: MiniApp) => {
@@ -99,6 +114,15 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
       const user = ctx?.user;
       if (!user) { alert("Please connect your Farcaster account."); return; }
 
+      // 1. GENERATE SIGNATURE (New Security Step)
+      const nonce = `feature-slot-${slotIndex}-${Date.now()}`;
+      const signResult = await sdk.actions.signIn({ nonce });
+      
+      if (!signResult.signature || !signResult.message) {
+        throw new Error("Failed to sign request");
+      }
+
+      // 2. SEND TOKEN
       const result = await sdk.actions.sendToken({
         token: MARKETPLACE_CONFIG.tokens.baseUsdc,
         amount: MARKETPLACE_CONFIG.prices.featuredUsdc,
@@ -107,11 +131,22 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
 
       if (result.success) {
         const txHash = result.send.transaction;
-        // LOGIC FIX: Passing real appId now
+        
+        // 3. CALL API WITH AUTH
         const res = await fetch('/api/featured', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash, fid: user.fid, slotIndex, appId })
+          body: JSON.stringify({ 
+            txHash, 
+            fid: user.fid, 
+            slotIndex, 
+            appId,
+            auth: {
+                signature: signResult.signature,
+                message: signResult.message,
+                nonce: nonce 
+            }
+          })
         });
         const data = await res.json();
         if (data.success) { alert(`Slot Secured!`); router.refresh(); }
@@ -134,6 +169,22 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
         <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Launchpad</h2>
         <span className="text-xs font-mono text-violet-400 bg-violet-100 px-2 py-0.5 rounded-md">{activeIndex + 1} / 6</span>
       </div>
+
+      <button 
+        onClick={handlePrev}
+        className="absolute left-2 top-[60%] -translate-y-1/2 z-10 bg-white/90 text-violet-700 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95 disabled:opacity-50"
+        aria-label="Previous Slide"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+      </button>
+
+      <button 
+        onClick={handleNext}
+        className="absolute right-2 top-[60%] -translate-y-1/2 z-10 bg-white/90 text-violet-700 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:scale-110 active:scale-95 disabled:opacity-50"
+        aria-label="Next Slide"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+      </button>
 
       <div 
         ref={scrollContainerRef}
@@ -205,7 +256,15 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
       
       <div className="flex justify-center gap-1.5 mt-[-12px]">
         {featuredApps.map((_, i) => (
-          <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === activeIndex ? "w-6 bg-violet-600" : "w-1.5 bg-violet-200"}`} />
+          <button 
+            key={i} 
+            onClick={() => {
+              setIsPaused(true);
+              scrollToIndex(i);
+            }}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${i === activeIndex ? "w-6 bg-violet-600" : "w-1.5 bg-violet-200 hover:bg-violet-300 cursor-pointer"}`} 
+          />
         ))}
       </div>
     </div>

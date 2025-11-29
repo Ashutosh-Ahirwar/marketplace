@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const [myListings, setMyListings] = useState<MiniApp[]>([]);
   const [activeTab, setActiveTab] = useState<'listings' | 'history'>('listings');
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const refreshData = async (fid: number) => {
     try {
@@ -41,23 +42,51 @@ export default function ProfilePage() {
 
   const handleDelete = async (appId: string) => {
     if (!user) return;
+    
+    // 1. Confirm Intent
     if (!confirm("Are you sure you want to delete this listing? This cannot be undone.")) return;
 
+    setIsDeleting(appId);
+
     try {
+      // 2. Generate Signature for Security
+      const nonce = `delete-${appId}-${Date.now()}`;
+      const signResult = await sdk.actions.signIn({ nonce });
+
+      if (!signResult.signature || !signResult.message) {
+        alert("Signature failed. Cannot verify ownership.");
+        setIsDeleting(null);
+        return;
+      }
+
+      // 3. Send Authenticated Request
       const res = await fetch('/api/apps/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appId, fid: user.fid })
+        body: JSON.stringify({ 
+          appId, 
+          fid: user.fid,
+          auth: {
+            signature: signResult.signature,
+            message: signResult.message,
+            nonce: nonce // FIXED: Use the local 'nonce' variable
+          }
+        })
       });
       
+      const data = await res.json();
+
       if (res.ok) {
-        alert("Listing deleted.");
-        refreshData(user.fid);
+        alert("Listing deleted successfully.");
+        await refreshData(user.fid);
       } else {
-        alert("Failed to delete.");
+        alert(`Failed to delete: ${data.error || 'Unknown error'}`);
       }
     } catch (e) {
+      console.error(e);
       alert("Error deleting app.");
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -106,9 +135,10 @@ export default function ProfilePage() {
                     </div>
                     <button 
                       onClick={() => handleDelete(app.id)}
-                      className="flex-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 font-bold py-2.5 rounded-xl transition-colors"
+                      disabled={isDeleting === app.id}
+                      className="flex-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 font-bold py-2.5 rounded-xl transition-colors disabled:opacity-50"
                     >
-                      Delete Listing
+                      {isDeleting === app.id ? "Verifying..." : "Delete Listing"}
                     </button>
                   </div>
                 </div>
@@ -127,14 +157,6 @@ export default function ProfilePage() {
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-slate-900 truncate">{tx.description}</h3>
-                    <a 
-                      href={`https://basescan.org/tx/${tx.txHash}`}
-                      target="_blank"
-                      rel="noreferrer" 
-                      className="text-[10px] text-blue-500 hover:underline font-mono block truncate"
-                    >
-                      {tx.txHash}
-                    </a>
                     <span className="text-[9px] text-gray-400">{new Date(tx.timestamp).toLocaleDateString()}</span>
                   </div>
                 </div>

@@ -1,28 +1,30 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPayment } from '@/lib/server/verify';
-import { verifyUserAuth } from '@/lib/server/auth'; // Import the new helper
+import { verifyUserAuth } from '@/lib/server/auth';
 import { MARKETPLACE_CONFIG } from '@/lib/config';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { txHash, appData, user, auth } = body; // Expect 'auth' object
+    const { txHash, appData, user, auth } = body; 
 
-    // 0. Security Check
+    // 0. Security Check (Recover Address)
     if (!auth || !auth.signature) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
-    // Verify the user actually signed this request
-    await verifyUserAuth({ 
+    
+    // Auth helper now returns the address
+    const userWalletAddress = await verifyUserAuth({ 
       fid: user.fid, 
       signature: auth.signature, 
       message: auth.message, 
       nonce: auth.nonce 
     });
 
-    // 1. Verify Payment via Alchemy
-    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc);
+    // 1. Verify Payment AND Sender
+    // We pass userWalletAddress to ensure this user actually paid
+    await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.listingUsdc, userWalletAddress as string);
 
     // 2. Check if Tx Hash already used
     const existingTx = await prisma.transaction.findUnique({ where: { txHash } });
@@ -38,14 +40,12 @@ export async function POST(req: Request) {
 
     // 4. Atomic Database Transaction
     await prisma.$transaction(async (tx) => {
-      // Ensure User
       await tx.user.upsert({
         where: { fid: user.fid },
         update: { username: user.username },
         create: { fid: user.fid, username: user.username }
       });
 
-      // Create App
       await tx.miniApp.create({
         data: {
           name: appData.name,
@@ -58,7 +58,6 @@ export async function POST(req: Request) {
         }
       });
 
-      // Record Transaction
       await tx.transaction.create({
         data: {
           txHash,

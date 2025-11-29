@@ -13,12 +13,13 @@ export default function ListAppForm() {
   const [iconUrl, setIconUrl] = useState('');
   const [appName, setAppName] = useState('');
   
+  // Missing state fixed here:
+  const [descCount, setDescCount] = useState(0);
+
   // Recovery State
   const [pendingTxHash, setPendingTxHash] = useState<string | null>(null);
   const [errorState, setErrorState] = useState<string | null>(null);
 
-  // Input Constraints
-  const [descCount, setDescCount] = useState(0);
   const DESC_LIMIT = 100;
   const NAME_LIMIT = 30;
 
@@ -37,14 +38,11 @@ export default function ListAppForm() {
 
   const handleConnect = async () => {
     try {
-      const nonce = "list-app-ownership-proof"; 
-      const result = await sdk.actions.signIn({ nonce }); 
-      if (result.signature) {
+      // We don't sign here, we sign on submission to ensure freshness
+      const ctx = await sdk.context;
+      if (ctx?.user?.username) {
+        setUser({ fid: ctx.user.fid, username: ctx.user.username });
         setIsConnected(true);
-        const ctx = await sdk.context;
-        if (ctx?.user?.username) {
-          setUser({ fid: ctx.user.fid, username: ctx.user.username });
-        }
       }
     } catch (e) {
       alert("Connection failed.");
@@ -54,6 +52,14 @@ export default function ListAppForm() {
   const processListing = async (txHash: string, formData: FormData) => {
     try {
       if (!user) throw new Error("User context missing");
+
+      // 1. GENERATE SIGNATURE
+      const nonce = `list-app-${Date.now()}`;
+      const signResult = await sdk.actions.signIn({ nonce });
+      
+      if (!signResult.signature || !signResult.message) {
+        throw new Error("Failed to sign request");
+      }
 
       const appData = {
         name: formData.get('name'),
@@ -67,11 +73,20 @@ export default function ListAppForm() {
       const res = await fetch('/api/apps/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txHash, appData, user })
+        body: JSON.stringify({ 
+          txHash, 
+          appData, 
+          user,
+          // 2. SEND AUTH
+          auth: {
+            signature: signResult.signature,
+            message: signResult.message,
+            nonce: nonce 
+          }
+        })
       });
 
       const data = await res.json();
-
       if (!data.success) throw new Error(data.error);
 
       alert("Success! App Listed.");
@@ -91,9 +106,8 @@ export default function ListAppForm() {
     const url = formData.get('url') as string;
     
     // VALIDATION: Strict check for Farcaster Universal Links
-    // This is GOOD practice because it ensures the app is registered.
     if (!url.startsWith("https://farcaster.xyz/miniapps/")) {
-      setErrorState("Invalid Link. Please use the official Farcaster Universal Link (starts with 'https://farcaster.xyz/miniapps/').");
+      setErrorState("Invalid Link. Please use the official Farcaster Universal Link.");
       setLoading(false);
       return;
     }
