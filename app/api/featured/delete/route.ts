@@ -25,20 +25,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized: You do not own the app in this slot" }, { status: 403 });
     }
 
-    // Atomic Transaction: Remove Slot + Record History
+    // Atomic Transaction: Remove Slot + Record Activity Log
     await prisma.$transaction(async (tx) => {
       await tx.featuredSlot.delete({ where: { slotIndex } });
 
-      // Create History Record
-      const uniqueSuffix = Math.random().toString(36).substring(7);
-      await tx.transaction.create({
+      // Create Activity Log Entry
+      await tx.activityLog.create({
         data: {
-          txHash: `DEL-FEAT-${Date.now()}-${uniqueSuffix}`, 
           userFid: fid,
-          type: 'DELETE_FEATURED',
-          amount: '0',
-          status: 'SUCCESS',
-          description: `Ended Promotion: ${slot.app.name}`
+          action: 'DELETE_FEATURED',
+          details: `Ended Promotion: ${slot.app.name}`
         }
       });
     });

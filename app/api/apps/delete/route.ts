@@ -20,21 +20,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized: You do not own this app" }, { status: 403 });
     }
 
-    // Atomic Transaction: Delete App + Record History
+    // Atomic Transaction: Delete App + Record Activity Log
     await prisma.$transaction(async (tx) => {
       await tx.miniApp.delete({ where: { id: appId } });
 
-      // Create History Record
-      // Added random suffix to ensure uniqueness
-      const uniqueSuffix = Math.random().toString(36).substring(7);
-      await tx.transaction.create({
+      // Create Activity Log Entry (Clean Architecture)
+      await tx.activityLog.create({
         data: {
-          txHash: `DEL-APP-${Date.now()}-${uniqueSuffix}`, 
           userFid: fid,
-          type: 'DELETE_LISTING',
-          amount: '0',
-          status: 'SUCCESS',
-          description: `Deleted listing: ${app.name}`
+          action: 'DELETE_LISTING',
+          details: `Deleted listing: ${app.name}`
         }
       });
     });

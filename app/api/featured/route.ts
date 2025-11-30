@@ -41,24 +41,10 @@ export async function POST(req: Request) {
       fid: fid
     });
 
-    // NOTE: Since we switched to Quick Auth (JWT), we don't get the wallet address directly 
-    // from the signature recovery like we did with SIWF.
-    // For now, we verify the payment exists and matches the amount/recipient.
-    // If strict sender verification is required, you'd need to fetch user's verified addresses via Farcaster API.
-    
     // 1. Verify Payment
     await verifyPayment(txHash, MARKETPLACE_CONFIG.prices.featuredUsdc);
 
-    // 2. Check Availability (Robust Check)
-    const existingSlot = await prisma.featuredSlot.findUnique({
-      where: { slotIndex }
-    });
-
-    if (existingSlot && existingSlot.expiresAt > new Date()) {
-      return NextResponse.json({ success: false, error: "Slot was taken just now." }, { status: 409 });
-    }
-
-    // 3. Verify App Ownership
+    // 2. Verify App Ownership
     // Ensure the user trying to feature the app actually owns it
     const appToFeature = await prisma.miniApp.findUnique({
         where: { id: appId }
@@ -72,13 +58,17 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: "You do not own this app" }, { status: 403 });
     }
 
-    // 4. Calculate Expiration (24 hours from now)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    // 3. Atomic Reservation Logic
+    // We use a transaction to ensure we don't overwrite an active slot.
+    // Logic: Delete the slot IF it is expired, then try to CREATE. 
+    // If it exists and is active, CREATE will fail (Unique Constraint on slotIndex).
+    
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
 
-    // 5. Upsert Slot & Record Transaction
-    await prisma.$transaction([
-      prisma.transaction.create({
+    await prisma.$transaction(async (tx) => {
+      // Record Transaction first
+      await tx.transaction.create({
         data: {
           txHash,
           userFid: fid,
@@ -87,18 +77,34 @@ export async function POST(req: Request) {
           status: 'SUCCESS',
           description: `Rented Slot #${slotIndex + 1} for ${appToFeature.name}`
         }
-      }),
-      prisma.featuredSlot.upsert({
-        where: { slotIndex },
-        update: { appId, expiresAt },
-        create: { slotIndex, appId, expiresAt }
-      })
-    ]);
+      });
+
+      // Attempt to clear the slot if it's expired
+      // If it is active (expiresAt > now), this does nothing.
+      await tx.featuredSlot.deleteMany({
+        where: { 
+          slotIndex,
+          expiresAt: { lt: now } 
+        }
+      });
+
+      // Attempt to claim the slot. 
+      // If the slot exists (was not expired/deleted), this throws P2002 (Unique Constraint violation)
+      await tx.featuredSlot.create({
+        data: { slotIndex, appId, expiresAt }
+      });
+    });
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
     console.error("Feature Error:", error);
+    
+    // Check for Prisma Unique Constraint Violation (P2002)
+    if (error.code === 'P2002') {
+       return NextResponse.json({ success: false, error: "Slot was just taken by someone else." }, { status: 409 });
+    }
+
     return NextResponse.json({ success: false, error: error.message || "Server Error" }, { status: 400 });
   }
 }

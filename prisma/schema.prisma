@@ -14,6 +14,7 @@ model User {
   pfpUrl        String?
   listings      MiniApp[]
   transactions  Transaction[]
+  activityLogs  ActivityLog[] // New Relation
   createdAt     DateTime      @default(now())
 }
 
@@ -30,7 +31,6 @@ model MiniApp {
   createdAt      DateTime      @default(now())
   
   // Analytics
-  // uniqueViews removed
   clicks         Int           @default(0)
   trendingScore  Float         @default(0)
 
@@ -54,5 +54,15 @@ model Transaction {
   amount      String
   description String
   status      String   
+  timestamp   DateTime @default(now())
+}
+
+// New Model for Non-Financial Actions
+model ActivityLog {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userFid], references: [fid])
+  userFid     Int
+  action      String   // e.g. "DELETE_LISTING"
+  details     String   
   timestamp   DateTime @default(now())
 }
