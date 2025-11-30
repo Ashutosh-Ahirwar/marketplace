@@ -1,6 +1,7 @@
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import OpenAppButton from "@/components/OpenAppButton";
 import AddToHomeButton from "@/components/AddToHomeButton"; 
+import ShareButton from "@/components/ShareButton"; // IMPORTED
 import { MiniApp, APP_CATEGORIES } from "@/types"; 
 import { prisma } from "@/lib/prisma"; 
 
@@ -96,7 +97,7 @@ export default async function Home() {
             </div>
             <div className="space-y-3">
               {leaderboardApps.map((app, i) => (
-                <div key={app.id} className="bg-white p-3 rounded-xl border border-violet-100 shadow-sm flex items-center gap-4">
+                <div key={app.id} className="bg-white p-3 rounded-xl border border-violet-100 shadow-sm flex items-center gap-4 relative">
                    <span className={`text-lg font-black w-6 text-center ${i < 3 ? 'text-amber-500' : 'text-gray-300'}`}>#{i + 1}</span>
                    {/* eslint-disable-next-line @next/next/no-img-element */}
                    <img src={app.iconUrl} className="w-12 h-12 rounded-lg bg-gray-100 object-cover" />
@@ -104,8 +105,11 @@ export default async function Home() {
                      <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
                      <p className="text-[10px] text-gray-400 truncate">@{app.authorUsername}</p>
                    </div>
-                   <div className="w-20">
-                     <OpenAppButton url={app.url} appId={app.id} />
+                   <div className="flex items-center gap-2">
+                     <ShareButton appName={app.name} />
+                     <div className="w-20">
+                       <OpenAppButton url={app.url} appId={app.id} />
+                     </div>
                    </div>
                 </div>
               ))}
@@ -130,7 +134,10 @@ export default async function Home() {
                 {apps.slice(0, 8).map((app) => (
                   <div key={app.id} className="group bg-white p-4 rounded-2xl shadow-sm border border-violet-100 flex flex-col relative overflow-hidden hover:shadow-md hover:border-violet-200 transition-all h-full">
                       
-                      {/* Note: Verified tick removed as requested previously */}
+                      {/* ADDED SHARE BUTTON */}
+                      <div className="absolute top-2 left-2 z-10">
+                        <ShareButton appName={app.name} />
+                      </div>
                       
                       <div className="flex flex-col items-center text-center mb-2 mt-1">
                         {/* eslint-disable-next-line @next/next/no-img-element */}

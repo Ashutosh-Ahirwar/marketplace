@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { APP_CATEGORIES, AppCategory, MiniApp } from '@/types';
 import OpenAppButton from '@/components/OpenAppButton';
+import ShareButton from '@/components/ShareButton'; // Imported ShareButton
 
 // Debounce hook to prevent API spam while typing
 function useDebounce(value: string, delay: number) {
@@ -143,9 +144,7 @@ function SearchContent() {
             {/* 1. TRENDING NOW */}
             <section className="mb-8">
                <div className="flex items-center justify-between mb-4 px-1">
-                 <div className="flex items-center gap-2">
-                   <h2 className="text-lg font-bold text-slate-900">Trending Now</h2>
-                 </div>
+                 <div className="flex items-center gap-2"><h2 className="text-lg font-bold text-slate-900">Trending Now</h2></div>
                  
                  {/* VIEW ALL TOGGLE */}
                  <button 
@@ -166,7 +165,10 @@ function SearchContent() {
                       <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
                       <p className="text-[10px] text-gray-400 truncate">@{app.authorUsername}</p>
                     </div>
-                    <div className="w-20"><OpenAppButton url={app.url} appId={app.id} /></div>
+                    <div className="flex items-center gap-2">
+                        <ShareButton appName={app.name} />
+                        <div className="w-20"><OpenAppButton url={app.url} appId={app.id} /></div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -179,6 +181,9 @@ function SearchContent() {
               <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-4 px-4">
                 {newArrivals.map((app) => (
                   <div key={app.id} className="min-w-[150px] w-[150px] bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center relative group">
+                    {/* ADDED: Share Button */}
+                    <div className="absolute top-2 right-2 z-10"><ShareButton appName={app.name} /></div>
+                    
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl bg-gray-100 object-cover mb-2 shadow-sm" />
                     <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
@@ -214,6 +219,9 @@ function SearchContent() {
                 <div className="grid grid-cols-2 gap-4 mb-8">
                   {filteredApps.map(app => (
                       <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                        {/* ADDED: Share Button */}
+                        <div className="absolute top-2 right-2 z-10"><ShareButton appName={app.name} /></div>
+
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-2xl shadow-sm mb-3 object-cover" />
                         <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>

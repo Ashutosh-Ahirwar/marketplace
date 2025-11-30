@@ -3,6 +3,7 @@ import { sdk } from '@farcaster/miniapp-sdk'
 import { MiniApp } from '@/types' 
 import { useState, useRef, useEffect } from 'react';
 import OpenAppButton from './OpenAppButton';
+import ShareButton from './ShareButton'; // 1. Import ShareButton
 import { MARKETPLACE_CONFIG } from '../lib/config';
 import { useRouter } from 'next/navigation';
 
@@ -218,6 +219,12 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                   <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/20 text-amber-300 shadow-sm">
                     FEATURED
                   </div>
+                  
+                  {/* 2. ADDED: Share Button */}
+                  <div className="absolute top-3 left-3 z-20">
+                    <ShareButton appName={app.name} />
+                  </div>
+
                   <div className="flex items-center gap-4 mb-3 mt-1">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl bg-white/10 shadow-md object-cover ring-2 ring-white/20" />
@@ -227,7 +234,7 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                     </div>
                   </div>
                   
-                  {/* UPDATED: Scrollable Description for Featured Card */}
+                  {/* 3. UPDATED: Scrollable Description */}
                   <p className="text-xs text-violet-100 h-10 overflow-y-auto no-scrollbar mb-4 leading-relaxed opacity-90 pr-1">
                     {app.description}
                   </p>

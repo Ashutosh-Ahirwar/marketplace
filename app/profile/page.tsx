@@ -3,6 +3,7 @@ import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
 import { Transaction, MiniApp } from '@/types'
 import OpenAppButton from '@/components/OpenAppButton'
+import ShareButton from '@/components/ShareButton' // IMPORTED
 
 interface FeaturedSlotItem {
   slotIndex: number;
@@ -256,6 +257,11 @@ export default function ProfilePage() {
                   <div key={`featured-${slotIndex}`} className="bg-gradient-to-br from-violet-50 to-indigo-50 p-4 rounded-xl border border-violet-100 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 bg-violet-200 text-violet-700 text-[9px] font-bold px-2 py-1 rounded-bl-lg">SLOT #{slotIndex + 1}</div>
                     
+                    {/* ADDED SHARE BUTTON */}
+                    <div className="absolute top-2 right-2 z-10" style={{ right: '4.5rem', top: '0.75rem' }}>
+                       <ShareButton appName={app.name} />
+                    </div>
+                    
                     <div className="flex items-center gap-4 mb-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-white shadow-sm object-cover" />
@@ -280,7 +286,10 @@ export default function ProfilePage() {
             <div className="space-y-4">
               {myListings.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">No listings found.</div> : (
                 myListings.map(app => (
-                  <div key={app.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3">
+                  <div key={app.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3 relative">
+                    {/* ADDED SHARE BUTTON */}
+                    <div className="absolute top-2 right-2 z-10"><ShareButton appName={app.name} /></div>
+
                     <div className="flex items-center gap-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-lg bg-gray-100 object-cover" />
