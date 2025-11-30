@@ -4,46 +4,41 @@ import { verifyUserAuth } from '@/lib/server/auth';
 
 export async function POST(req: Request) {
   try {
-    const { appId, fid, auth } = await req.json();
+    const { slotIndex, fid, auth } = await req.json();
 
-    // 0. Security Check: Validate Quick Auth Token
     if (!auth || !auth.token) {
-      return NextResponse.json({ error: "Unauthorized: Missing token" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: Missing authentication token" }, { status: 401 });
     }
     
-    // Verify user identity using Quick Auth
-    await verifyUserAuth({ 
-      token: auth.token,
-      fid: fid
+    await verifyUserAuth({ token: auth.token, fid: fid });
+
+    const slot = await prisma.featuredSlot.findUnique({
+      where: { slotIndex },
+      include: { app: true }
     });
 
-    // 1. Verify Ownership
-    const app = await prisma.miniApp.findUnique({
-      where: { id: appId }
-    });
-
-    if (!app || app.ownerFid !== fid) {
-      return NextResponse.json({ error: "Unauthorized: You do not own this app" }, { status: 403 });
+    if (!slot) {
+      return NextResponse.json({ error: "Slot not found or already empty" }, { status: 404 });
     }
 
-    // 2. Delete App & Record Transaction (Atomic)
-    // We create a history entry even though there is no blockchain transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete the App
-      await tx.miniApp.delete({
-        where: { id: appId }
-      });
+    if (slot.app.ownerFid !== fid) {
+      return NextResponse.json({ error: "Unauthorized: You do not own the app in this slot" }, { status: 403 });
+    }
 
-      // Create a History Record
-      // We generate a unique ID for the txHash since one doesn't exist on-chain
+    // Atomic Transaction: Remove Slot + Record History
+    await prisma.$transaction(async (tx) => {
+      await tx.featuredSlot.delete({ where: { slotIndex } });
+
+      // Create History Record
+      const uniqueSuffix = Math.random().toString(36).substring(7);
       await tx.transaction.create({
         data: {
-          txHash: `DEL-${Date.now()}-${appId}`, 
+          txHash: `DEL-FEAT-${Date.now()}-${uniqueSuffix}`, 
           userFid: fid,
-          type: 'DELETE_LISTING',
+          type: 'DELETE_FEATURED',
           amount: '0',
           status: 'SUCCESS',
-          description: `Deleted listing: ${app.name}`
+          description: `Ended Promotion: ${slot.app.name}`
         }
       });
     });
@@ -51,7 +46,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("Delete Error", error);
-    return NextResponse.json({ error: error.message || "Delete failed" }, { status: 500 });
+    console.error("Delete Feature Error", error);
+    return NextResponse.json({ error: error.message || "Failed to remove feature" }, { status: 500 });
   }
 }

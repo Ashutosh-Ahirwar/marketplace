@@ -4,27 +4,24 @@ import { useState, useEffect } from 'react'
 import { Transaction, MiniApp } from '@/types'
 import OpenAppButton from '@/components/OpenAppButton'
 
-// Type for Featured Slot (extending what we get from API)
 interface FeaturedSlotItem {
   slotIndex: number;
   app: MiniApp;
-  expiresAt: string; // ISO string date
+  expiresAt: string;
 }
 
 export default function ProfilePage() {
   const [user, setUser] = useState<{ fid: number; username?: string; pfpUrl?: string } | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [myListings, setMyListings] = useState<MiniApp[]>([]);
-  
-  // NEW: State for my featured slots
   const [myFeatured, setMyFeatured] = useState<FeaturedSlotItem[]>([]);
   
   const [activeTab, setActiveTab] = useState<'listings' | 'history'>('listings');
   const [isLoading, setIsLoading] = useState(true);
   
   // Delete States
-  const [isDeleting, setIsDeleting] = useState<string | null>(null); // holds ID (appId or slotIndex)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null); // for regular delete
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   
   // Featured Delete Logic
   const [featuredToDelete, setFeaturedToDelete] = useState<FeaturedSlotItem | null>(null);
@@ -39,23 +36,19 @@ export default function ProfilePage() {
 
   const refreshData = async (fid: number) => {
     try {
-      // UPDATED: Added { cache: 'no-store' } to ensure we get the latest history immediately
       const res = await fetch(`/api/user/${fid}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.listings) setMyListings(data.listings);
       if (data.transactions) setHistory(data.transactions);
       
-      // NEW: Also fetch active featured slots. 
       const featRes = await fetch('/api/featured', { cache: 'no-store' });
       const featData = await featRes.json();
       if (featData.slots) {
-        // filter slots where app owner is me
         const mySlots = featData.slots
-          .map((app: any, index: number) => ({ app, slotIndex: index })) // map back to slot structure since API returns array of apps
+          .map((app: any, index: number) => ({ app, slotIndex: index }))
           .filter((item: any) => item.app && item.app.ownerFid === fid);
         setMyFeatured(mySlots);
       }
-
     } catch (e) {
       console.error("Failed to fetch user data");
     }
@@ -121,7 +114,6 @@ export default function ProfilePage() {
   const handleRemoveFeature = async () => {
     if (!user || !featuredToDelete) return;
     
-    // Strict Check
     if (deleteConfirmationText.toLowerCase() !== "delete featured listing") {
       showToast("Please type the confirmation phrase exactly.", 'error');
       return;
@@ -146,7 +138,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (res.ok) {
         showToast("Feature removed.", 'success');
-        setFeaturedToDelete(null); // Close modal
+        setFeaturedToDelete(null); 
         setDeleteConfirmationText("");
         await refreshData(user.fid);
       } else {
@@ -164,6 +156,7 @@ export default function ProfilePage() {
       case 'LISTING': return 'bg-blue-50 text-blue-600';
       case 'FEATURED': return 'bg-purple-50 text-purple-600';
       case 'DELETE_LISTING': return 'bg-red-50 text-red-600';
+      case 'DELETE_FEATURED': return 'bg-orange-50 text-orange-600';
       default: return 'bg-gray-50 text-gray-600';
     }
   };
@@ -173,12 +166,13 @@ export default function ProfilePage() {
       case 'LISTING': return 'L';
       case 'FEATURED': return 'F';
       case 'DELETE_LISTING': return 'D';
+      case 'DELETE_FEATURED': return 'X';
       default: return '?';
     }
   };
 
   const getTransactionAmount = (tx: Transaction) => {
-     if (tx.type === 'DELETE_LISTING') return '$0';
+     if (tx.type.includes('DELETE')) return '$0';
      return tx.type === 'LISTING' ? '-$5' : '-$50';
   };
 
