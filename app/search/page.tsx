@@ -24,6 +24,9 @@ function SearchContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
+  // Trending Section State
+  const [isTrendingExpanded, setIsTrendingExpanded] = useState(false);
+  
   // Pagination State
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -83,7 +86,11 @@ function SearchContent() {
   const filteredApps = apps; 
 
   // Discovery mode helpers (for Page 1 only)
-  const trendingApps = [...apps].sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0)).slice(0, 5);
+  // Sort full list by trending score
+  const sortedTrending = [...apps].sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
+  // Determine display count based on expansion state (Top 5 vs Top 20)
+  const displayedTrending = isTrendingExpanded ? sortedTrending : sortedTrending.slice(0, 5);
+  
   const newArrivals = [...apps].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
 
   const handlePageChange = (newPage: number) => {
@@ -133,13 +140,27 @@ function SearchContent() {
         {/* MODE 1: DISCOVERY (Only show when NOT searching/filtering AND on Page 1) */}
         {showDiscoveryMode && (
           <>
-            {/* 1. TRENDING NOW (Moved to Top) */}
+            {/* 1. TRENDING NOW */}
             <section className="mb-8">
-               <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">Trending Now</h2></div>
+               <div className="flex items-center justify-between mb-4 px-1">
+                 <div className="flex items-center gap-2">
+                   <h2 className="text-lg font-bold text-slate-900">Trending Now</h2>
+                 </div>
+                 
+                 {/* VIEW ALL TOGGLE */}
+                 <button 
+                   onClick={() => setIsTrendingExpanded(!isTrendingExpanded)}
+                   className="text-[11px] font-bold text-violet-600 hover:bg-violet-100 px-3 py-1.5 rounded-full transition-colors"
+                 >
+                   {isTrendingExpanded ? "Show Less" : "View All"}
+                 </button>
+               </div>
+
                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                {trendingApps.map((app, i) => (
+                {displayedTrending.map((app, i) => (
                   <div key={app.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
                     <span className={`text-sm font-black w-6 text-center ${i < 3 ? 'text-amber-500' : 'text-gray-300'}`}>#{i + 1}</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
@@ -151,13 +172,14 @@ function SearchContent() {
               </div>
             </section>
 
-            {/* 2. JUST IN (Formerly New Arrivals, Moved Below) */}
+            {/* 2. JUST IN */}
             <section className="mb-8">
               <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">Just In</h2></div>
               {isLoading ? <div className="text-center text-xs text-gray-400">Loading...</div> : (
               <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-4 px-4">
                 {newArrivals.map((app) => (
                   <div key={app.id} className="min-w-[150px] w-[150px] bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center relative group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl bg-gray-100 object-cover mb-2 shadow-sm" />
                     <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
                     <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
@@ -192,6 +214,7 @@ function SearchContent() {
                 <div className="grid grid-cols-2 gap-4 mb-8">
                   {filteredApps.map(app => (
                       <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-2xl shadow-sm mb-3 object-cover" />
                         <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
                         <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
