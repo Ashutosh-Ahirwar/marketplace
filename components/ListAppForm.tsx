@@ -1,12 +1,15 @@
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation' // Added for navigation
+import { useRouter } from 'next/navigation' 
 import { APP_CATEGORIES } from '../types'
 import { MARKETPLACE_CONFIG } from '../lib/config'
 
+// Hardcoded for sharing deep links (matches layout.tsx)
+const MARKETPLACE_URL = "https://marketplace-lovat-zeta.vercel.app";
+
 export default function ListAppForm() {
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>(""); 
   
@@ -107,13 +110,17 @@ export default function ListAppForm() {
     }
   };
 
-  // New function to handle sharing
+  // UPDATED: Share logic now links to the Marketplace Search for the app
   const handleShare = async () => {
     if (!successData) return;
+    
+    // Construct deep link to finding this app in the mart
+    const martLink = `${MARKETPLACE_URL}/search?q=${encodeURIComponent(successData.name)}`;
+
     try {
       await sdk.actions.composeCast({
-        text: `I just listed ${successData.name} on MiniApp Mart! 🚀\n\nCheck it out here:`,
-        embeds: [successData.url] 
+        text: `I just listed ${successData.name} on MiniApp Mart! 🚀\n\nCheck it out:`,
+        embeds: [martLink] 
       });
     } catch (error) {
       console.error("Share failed:", error);
@@ -161,7 +168,6 @@ export default function ListAppForm() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      // UPDATED: Set Success State instead of redirecting
       setLoading(false);
       setPendingTxHash(null);
       setSuccessData({ name, url });
@@ -336,6 +342,7 @@ export default function ListAppForm() {
           placeholder="App Name" 
           required 
           maxLength={NAME_LIMIT}
+          value={appName}
           onChange={(e) => setAppName(e.target.value)}
           className="p-3.5 bg-violet-50/50 border border-violet-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all text-violet-900 placeholder:text-violet-300" 
         />
@@ -352,6 +359,7 @@ export default function ListAppForm() {
           <div className="absolute bottom-2 right-2 text-[10px] text-violet-300 font-mono">{descCount}/{DESC_LIMIT}</div>
         </div>
         
+        {/* --- APP URL WITH LIVE VALIDATION --- */}
         <div className="relative">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -432,7 +440,15 @@ export default function ListAppForm() {
         </select>
 
         <button 
-          disabled={loading || !!urlError || (!!appUrl && !isUrlVerified)}
+          // UPDATED: Strict Validation Checks
+          disabled={
+            loading || 
+            !!urlError || 
+            !isUrlVerified || 
+            !appName.trim() || 
+            !iconUrl.trim() || 
+            descCount === 0
+          }
           type="submit" 
           className={`p-4 rounded-xl font-bold text-white text-sm shadow-lg shadow-violet-600/30 active:scale-95 transition-all flex justify-center items-center gap-2 ${
             pendingTxHash ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed'
