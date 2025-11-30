@@ -83,8 +83,6 @@ function SearchContent() {
   const filteredApps = apps; 
 
   // Discovery mode helpers (for Page 1 only)
-  // In a real production app, you might want separate API calls for "Top Trending" vs "New Arrivals" 
-  // to avoid relying on the first page of results, but for now, we derive from the initial fetch.
   const trendingApps = [...apps].sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0)).slice(0, 5);
   const newArrivals = [...apps].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
 
@@ -135,21 +133,7 @@ function SearchContent() {
         {/* MODE 1: DISCOVERY (Only show when NOT searching/filtering AND on Page 1) */}
         {showDiscoveryMode && (
           <>
-            <section className="mb-8">
-              <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">New Arrivals</h2></div>
-              {isLoading ? <div className="text-center text-xs text-gray-400">Loading...</div> : (
-              <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-4 px-4">
-                {newArrivals.map((app) => (
-                  <div key={app.id} className="min-w-[140px] w-[140px] bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center relative group">
-                    <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl bg-gray-100 object-cover mb-2 shadow-sm" />
-                    <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
-                    <div className="w-full mt-auto"><OpenAppButton url={app.url} appId={app.id} /></div>
-                  </div>
-                ))}
-              </div>
-              )}
-            </section>
-            
+            {/* 1. TRENDING NOW (Moved to Top) */}
             <section className="mb-8">
                <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">Trending Now</h2></div>
                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
@@ -159,11 +143,35 @@ function SearchContent() {
                     <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm text-slate-900 truncate">{app.name}</h3>
+                      <p className="text-[10px] text-gray-400 truncate">@{app.authorUsername}</p>
                     </div>
                     <div className="w-20"><OpenAppButton url={app.url} appId={app.id} /></div>
                   </div>
                 ))}
               </div>
+            </section>
+
+            {/* 2. JUST IN (Formerly New Arrivals, Moved Below) */}
+            <section className="mb-8">
+              <div className="flex items-center gap-2 mb-4"><h2 className="text-lg font-bold text-slate-900">Just In</h2></div>
+              {isLoading ? <div className="text-center text-xs text-gray-400">Loading...</div> : (
+              <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-4 px-4">
+                {newArrivals.map((app) => (
+                  <div key={app.id} className="min-w-[150px] w-[150px] bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center relative group">
+                    <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl bg-gray-100 object-cover mb-2 shadow-sm" />
+                    <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
+                    <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
+                    
+                    {/* Scrollable Description */}
+                    <p className="text-[10px] text-gray-400 h-8 leading-tight overflow-y-auto no-scrollbar w-full px-1 mb-2">
+                      {app.description}
+                    </p>
+
+                    <div className="w-full mt-auto"><OpenAppButton url={app.url} appId={app.id} /></div>
+                  </div>
+                ))}
+              </div>
+              )}
             </section>
           </>
         )}
@@ -183,10 +191,17 @@ function SearchContent() {
              <>
                 <div className="grid grid-cols-2 gap-4 mb-8">
                   {filteredApps.map(app => (
-                      <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-3"><img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-lg bg-gray-100 object-cover" /></div>
-                        <h3 className="font-bold text-sm text-slate-900 mb-1 truncate">{app.name}</h3>
-                        <div className="mt-auto"><OpenAppButton url={app.url} appId={app.id} /></div>
+                      <div key={app.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                        <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-2xl shadow-sm mb-3 object-cover" />
+                        <h3 className="font-bold text-sm text-slate-900 truncate w-full">{app.name}</h3>
+                        <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
+                        
+                        {/* Scrollable Description */}
+                        <p className="text-[10px] text-gray-400 h-8 leading-tight overflow-y-auto no-scrollbar w-full px-1 mb-3">
+                          {app.description}
+                        </p>
+
+                        <div className="mt-auto w-full"><OpenAppButton url={app.url} appId={app.id} /></div>
                       </div>
                   ))}
                 </div>
