@@ -21,7 +21,7 @@ export default async function Home() {
     where: { expiresAt: { gt: new Date() } },
     include: { app: { include: { owner: true } } },
     orderBy: { slotIndex: 'asc' },
-    take: 6 // Strict limit
+    take: 6 
   });
 
   const featuredSlots: (MiniApp | null)[] = Array(6).fill(null);
@@ -29,11 +29,11 @@ export default async function Home() {
     featuredSlots[slot.slotIndex] = toMiniApp(slot.app);
   });
 
-  // 2. Fetch Top Apps (Limited to top 50 for performance)
+  // 2. Fetch Top Apps 
   const appsData = await prisma.miniApp.findMany({
     orderBy: { trendingScore: 'desc' }, 
     include: { owner: true },
-    take: 50 // SCALABILITY FIX: Limit query
+    take: 50 
   });
   
   const allApps = appsData.map(toMiniApp);
@@ -115,18 +115,19 @@ export default async function Home() {
               <div className="grid grid-cols-2 gap-4">
                 {apps.slice(0, 8).map((app) => (
                   <div key={app.id} className="group bg-white p-4 rounded-2xl shadow-sm border border-violet-100 flex flex-col relative overflow-hidden hover:shadow-md hover:border-violet-200 transition-all h-full">
-                      {app.isVerified && (
-                        <div className="absolute top-3 right-3 text-blue-500 bg-blue-50 p-1 rounded-full z-10">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                        </div>
-                      )}
+                      
+                      {/* Removed Verified Tick Block Here */}
                       
                       <div className="flex flex-col items-center text-center mb-2 mt-1">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl shadow-sm mb-3 object-cover group-hover:scale-105 transition-transform duration-300" />
                         <h3 className="font-bold text-sm text-violet-900 truncate w-full">{app.name}</h3>
                         <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
-                        <p className="text-[10px] text-gray-400 line-clamp-2 h-8 leading-tight">{app.description}</p>
+                        
+                        {/* UPDATED: Scrollable Description (overflow-y-auto) */}
+                        <p className="text-[10px] text-gray-400 h-8 leading-tight overflow-y-auto no-scrollbar w-full px-1">
+                          {app.description}
+                        </p>
                       </div>
                       
                       <div className="mt-auto pt-2 w-full">

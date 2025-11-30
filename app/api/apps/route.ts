@@ -12,17 +12,23 @@ export async function GET(request: Request) {
     
     // Pagination Params
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20'); // Default 20 items per page
+    const limit = parseInt(searchParams.get('limit') || '20'); 
     const skip = (page - 1) * limit;
 
     // Build the "Where" clause dynamically
     const whereClause: any = {};
 
-    // 1. Search Filter
+    // 1. PERFORMANCE FIX: Search Logic
     if (query) {
+      // Format query for Postgres Full Text Search (e.g. "Space Game" -> "Space & Game")
+      // This allows finding results that contain ALL the words, much faster than 'contains'
+      // We trim and split by spaces, then join with '&' for the TSVector syntax
+      const searchTerms = query.trim().split(/\s+/).join(' & ');
+      
       whereClause.OR = [
-        { name: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } }
+        // 'search' uses Postgres indices, unlike 'contains' with mode: insensitive
+        { name: { search: searchTerms } },
+        { description: { search: searchTerms } }
       ];
     }
 
@@ -31,11 +37,11 @@ export async function GET(request: Request) {
       whereClause.category = category;
     }
 
-    // Execute queries in parallel: Fetch Data + Count Total (for pagination UI)
+    // Execute queries in parallel: Fetch Data + Count Total
     const [apps, totalCount] = await prisma.$transaction([
       prisma.miniApp.findMany({
         where: whereClause,
-        orderBy: { trendingScore: 'desc' }, // Show most relevant/trending first
+        orderBy: { trendingScore: 'desc' }, 
         take: limit,
         skip: skip,
         include: { owner: true }

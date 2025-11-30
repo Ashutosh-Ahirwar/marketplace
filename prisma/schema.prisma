@@ -1,68 +1,82 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  fid           Int           @id
-  username      String?
-  pfpUrl        String?
-  listings      MiniApp[]
-  transactions  Transaction[]
-  activityLogs  ActivityLog[] // New Relation
-  createdAt     DateTime      @default(now())
+  fid           Int           @id
+  username      String?
+  pfpUrl        String?
+  listings      MiniApp[]
+  transactions  Transaction[]
+  activityLogs  ActivityLog[] // Relation to ActivityLog
+  createdAt     DateTime      @default(now())
 }
 
 model MiniApp {
-  id             String        @id @default(cuid())
-  name           String
-  description    String
-  url            String        @unique
-  iconUrl        String
-  category       String
-  owner          User          @relation(fields: [ownerFid], references: [fid])
-  ownerFid       Int
-  isVerified     Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  
-  // Analytics
-  clicks         Int           @default(0)
-  trendingScore  Float         @default(0)
+  id             String        @id @default(cuid())
+  name           String
+  description    String
+  url            String        @unique
+  iconUrl        String
+  category       String
+  owner          User          @relation(fields: [ownerFid], references: [fid])
+  ownerFid       Int
+  isVerified     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  
+  // Analytics
+  clicks         Int           @default(0)
+  trendingScore  Float         @default(0)
 
-  // Relations
-  featuredSlot   FeaturedSlot?
+  // Relations
+  featuredSlot   FeaturedSlot?
+
+  // --- PERFORMANCE INDEXES ---
+  // Optimizes Homepage sorting
+  @@index([trendingScore])
+  // Optimizes Category filtering
+  @@index([category])
+  // Optimizes Profile loading (My Listings)
+  @@index([ownerFid])
 }
 
 model FeaturedSlot {
-  slotIndex Int      @id
-  app       MiniApp  @relation(fields: [appId], references: [id], onDelete: Cascade)
-  appId     String   @unique
-  expiresAt DateTime 
+  slotIndex Int      @id
+  app       MiniApp  @relation(fields: [appId], references: [id], onDelete: Cascade)
+  appId     String   @unique
+  expiresAt DateTime 
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  txHash      String   @unique
-  user        User     @relation(fields: [userFid], references: [fid])
-  userFid     Int
-  type        String   
-  amount      String
-  description String
-  status      String   
-  timestamp   DateTime @default(now())
+  id          String   @id @default(cuid())
+  txHash      String   @unique
+  user        User     @relation(fields: [userFid], references: [fid])
+  userFid     Int
+  type        String   
+  amount      String
+  description String
+  status      String   
+  timestamp   DateTime @default(now())
+
+  // Optimizes Profile loading (History)
+  @@index([userFid])
 }
 
-// New Model for Non-Financial Actions
 model ActivityLog {
-  id          String   @id @default(cuid())
-  user        User     @relation(fields: [userFid], references: [fid])
-  userFid     Int
-  action      String   // e.g. "DELETE_LISTING"
-  details     String   
-  timestamp   DateTime @default(now())
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userFid], references: [fid])
+  userFid     Int
+  action      String   // e.g. "DELETE_LISTING"
+  details     String   
+  timestamp   DateTime @default(now())
+
+  // Optimizes Profile loading (History)
+  @@index([userFid])
 }
