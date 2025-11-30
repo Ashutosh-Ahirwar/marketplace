@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// FORCE DYNAMIC: Ensures the API always fetches fresh data from the DB
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ fid: string }> } // Params are async in Next.js 15

@@ -39,13 +39,14 @@ export default function ProfilePage() {
 
   const refreshData = async (fid: number) => {
     try {
-      const res = await fetch(`/api/user/${fid}`);
+      // UPDATED: Added { cache: 'no-store' } to ensure we get the latest history immediately
+      const res = await fetch(`/api/user/${fid}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.listings) setMyListings(data.listings);
       if (data.transactions) setHistory(data.transactions);
       
       // NEW: Also fetch active featured slots. 
-      const featRes = await fetch('/api/featured');
+      const featRes = await fetch('/api/featured', { cache: 'no-store' });
       const featData = await featRes.json();
       if (featData.slots) {
         // filter slots where app owner is me
@@ -158,7 +159,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Styles helpers
   const getTransactionStyles = (type: string) => {
     switch (type) {
       case 'LISTING': return 'bg-blue-50 text-blue-600';
