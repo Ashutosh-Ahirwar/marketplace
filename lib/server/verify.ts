@@ -14,7 +14,7 @@ const USDC_TRANSFER_EVENT = parseAbiItem(
 );
 
 export async function verifyPayment(txHash: string, expectedAmount: string, expectedSender?: string) {
-  // 1. Check DB for Replay Attacks
+  // 1. Check DB for Replay Attacks (Prevents using same hash twice)
   const existingTx = await prisma.transaction.findUnique({ where: { txHash } });
   if (existingTx) throw new Error("Transaction hash already used.");
 
@@ -23,34 +23,51 @@ export async function verifyPayment(txHash: string, expectedAmount: string, expe
 
   if (receipt.status !== 'success') throw new Error("Transaction failed on-chain.");
 
-  // 3. Find USDC Transfer Log
+  // 3. Find Relevant USDC Transfer Logs
   const usdcAddress = MARKETPLACE_CONFIG.tokens.baseUsdc.split(':')[2].toLowerCase();
+  const recipient = MARKETPLACE_CONFIG.recipientAddress.toLowerCase();
   
-  const transferLog = receipt.logs.find(log => log.address.toLowerCase() === usdcAddress);
-  if (!transferLog) throw new Error("No USDC transfer found in transaction.");
+  // Filter for logs that come from the USDC contract
+  const usdcLogs = receipt.logs.filter(log => log.address.toLowerCase() === usdcAddress);
 
-  // 4. Decode and Verify Details
-  const decoded = decodeEventLog({
-    abi: [USDC_TRANSFER_EVENT],
-    data: transferLog.data,
-    topics: transferLog.topics
-  });
+  if (usdcLogs.length === 0) throw new Error("No USDC transfer found in transaction.");
 
-  const to = decoded.args.to?.toLowerCase();
-  const from = decoded.args.from?.toLowerCase(); 
-  const value = decoded.args.value; 
+  // 4. Iterate through logs to find A VALID payment
+  // A transaction might have multiple transfers (e.g. batch tx), so we look for ONE that satisfies our needs.
+  let validPaymentFound = false;
 
-  if (to !== MARKETPLACE_CONFIG.recipientAddress.toLowerCase()) {
-    throw new Error("Payment recipient does not match marketplace wallet.");
+  for (const log of usdcLogs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: [USDC_TRANSFER_EVENT],
+        data: log.data,
+        topics: log.topics
+      });
+
+      const to = decoded.args.to?.toLowerCase();
+      const from = decoded.args.from?.toLowerCase(); 
+      const value = decoded.args.value; 
+
+      // Check 1: Is it sent to US?
+      if (to !== recipient) continue;
+
+      // Check 2: Is the amount sufficient?
+      if (value && value < BigInt(expectedAmount)) continue;
+
+      // Check 3: Anti-Hijacking (Optional)
+      if (expectedSender && from !== expectedSender.toLowerCase()) continue;
+
+      // If we got here, we found a valid payment log!
+      validPaymentFound = true;
+      break; 
+    } catch (e) {
+      // Ignore decoding errors for non-compliant logs and continue searching
+      continue;
+    }
   }
 
-  if (value && value < BigInt(expectedAmount)) {
-    throw new Error(`Insufficient payment amount. Expected ${expectedAmount}, got ${value}`);
-  }
-
-  // 6. ANTI-HIJACKING CHECK (Optional if sender provided)
-  if (expectedSender && from !== expectedSender.toLowerCase()) {
-    throw new Error(`Payment hijacking detected! Wallet ${from} paid, but authenticated user is ${expectedSender}`);
+  if (!validPaymentFound) {
+    throw new Error(`Transaction does not contain a valid payment of ${expectedAmount} USDC to the marketplace.`);
   }
 
   return true;

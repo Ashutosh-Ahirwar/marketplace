@@ -12,7 +12,7 @@ export const APP_CATEGORIES: AppCategory[] = [
 export interface Transaction {
   id: string;
   txHash: string;
-  type: 'LISTING' | 'FEATURED';
+  type: 'LISTING' | 'FEATURED' | 'DELETE_LISTING';
   amount: string;
   timestamp: number;
   description: string;

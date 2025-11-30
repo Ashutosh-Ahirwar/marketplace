@@ -45,9 +45,6 @@ export default function ProfilePage() {
       if (data.transactions) setHistory(data.transactions);
       
       // NEW: Also fetch active featured slots. 
-      // ideally the /api/user/[fid] endpoint would return this, but we can fetch all slots and filter client-side for now 
-      // or assume the user endpoint has been updated. To be safe/fast without changing the user API, 
-      // let's fetch ALL active slots from /api/featured and filter by my FID.
       const featRes = await fetch('/api/featured');
       const featData = await featRes.json();
       if (featData.slots) {
@@ -159,6 +156,30 @@ export default function ProfilePage() {
     } finally {
       setIsDeleting(null);
     }
+  };
+
+  // Styles helpers
+  const getTransactionStyles = (type: string) => {
+    switch (type) {
+      case 'LISTING': return 'bg-blue-50 text-blue-600';
+      case 'FEATURED': return 'bg-purple-50 text-purple-600';
+      case 'DELETE_LISTING': return 'bg-red-50 text-red-600';
+      default: return 'bg-gray-50 text-gray-600';
+    }
+  };
+
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'LISTING': return 'L';
+      case 'FEATURED': return 'F';
+      case 'DELETE_LISTING': return 'D';
+      default: return '?';
+    }
+  };
+
+  const getTransactionAmount = (tx: Transaction) => {
+     if (tx.type === 'DELETE_LISTING') return '$0';
+     return tx.type === 'LISTING' ? '-$5' : '-$50';
   };
 
   if (isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-gray-400">Loading Profile...</div>;
@@ -310,16 +331,30 @@ export default function ProfilePage() {
             {history.map((tx) => (
               <div key={tx.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className={`p-2 rounded-lg shrink-0 ${tx.type === 'LISTING' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                    <span className="font-bold text-xs">{tx.type === 'LISTING' ? 'L' : 'F'}</span>
+                  <div className={`p-2 rounded-lg shrink-0 ${getTransactionStyles(tx.type)}`}>
+                    <span className="font-bold text-xs">{getTransactionIcon(tx.type)}</span>
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-slate-900 truncate">{tx.description}</h3>
-                    <span className="text-[9px] text-gray-400">{new Date(tx.timestamp).toLocaleDateString()}</span>
+                    <span className="text-[9px] text-gray-400 block">{new Date(tx.timestamp).toLocaleDateString()}</span>
+                    
+                    {/* Clickable Hash for On-Chain Transactions */}
+                    {/* Only show link if hash starts with '0x', otherwise it's an internal ID */}
+                    {tx.txHash.startsWith('0x') && (
+                      <a 
+                        href={`https://basescan.org/tx/${tx.txHash}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[9px] text-violet-400 hover:text-violet-600 underline flex items-center gap-1 mt-0.5"
+                      >
+                        {tx.txHash.slice(0, 6)}...{tx.txHash.slice(-4)}
+                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                      </a>
+                    )}
                   </div>
                 </div>
                 <div className="text-right pl-2 shrink-0">
-                   <div className="text-sm font-bold text-slate-900">{tx.type === 'LISTING' ? '-$5' : '-$50'}</div>
+                   <div className="text-sm font-bold text-slate-900">{getTransactionAmount(tx)}</div>
                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${tx.status === 'SUCCESS' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>{tx.status}</span>
                 </div>
               </div>

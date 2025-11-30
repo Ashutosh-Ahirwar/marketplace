@@ -1,3 +1,5 @@
+// components/ListAppForm.tsx
+
 'use client'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useState, useEffect } from 'react'
@@ -118,7 +120,8 @@ export default function ListAppForm() {
         throw new Error("Failed to authenticate. Please try again.");
       }
 
-      setStatusMessage("Finalizing listing...");
+      // UPDATED: Explicit status
+      setStatusMessage("Verifying Transaction...");
 
       const appData = {
         name: formData.get('name'),
@@ -152,8 +155,18 @@ export default function ListAppForm() {
       
     } catch (e: any) {
       console.error("Listing failed", e);
-      setPendingTxHash(txHash); 
-      setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
+      
+      // UPDATED: Logic to clear pendingTxHash if verification failed irrevocably
+      // This returns the UI to the "Normal" state (Pay & Submit) instead of "Retry"
+      const isTxFailure = e.message?.toLowerCase().includes("transaction") || e.message?.toLowerCase().includes("payment");
+      
+      if (isTxFailure) {
+          setPendingTxHash(null); 
+          setErrorState(`Verification failed: ${e.message}. Please try again.`);
+      } else {
+          setPendingTxHash(txHash); 
+          setErrorState(`Listing failed: ${e.message}. Payment was successful. Please click 'Retry Submission'.`);
+      }
       setLoading(false);
     } 
   };
@@ -208,6 +221,7 @@ export default function ListAppForm() {
         setLoading(false);
         if (result.reason === 'rejected_by_user') {
            console.log("User cancelled payment");
+           setErrorState(null); // Clear any previous errors if user just cancelled
         } else {
            throw new Error(`Transaction failed: ${result.error?.message || "Unknown error"}`);
         }
