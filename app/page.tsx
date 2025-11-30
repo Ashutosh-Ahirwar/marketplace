@@ -71,6 +71,20 @@ export default async function Home() {
       </div>
 
       <div className="px-4 pb-24 space-y-8">
+        
+        {/* WARNING BANNER */}
+        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 items-start shadow-sm animate-fade-in">
+          <div className="text-amber-500 shrink-0 mt-0.5">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-amber-900 mb-1">Do Your Own Research</h3>
+            <p className="text-xs text-amber-800/80 leading-relaxed">
+              MiniApp Mart does not audit listed apps. Interact with external apps at your own risk.
+            </p>
+          </div>
+        </div>
+
         <FeaturedCarousel featuredApps={featuredSlots} />
 
         {/* LEADERBOARD SECTION */}
@@ -116,7 +130,7 @@ export default async function Home() {
                 {apps.slice(0, 8).map((app) => (
                   <div key={app.id} className="group bg-white p-4 rounded-2xl shadow-sm border border-violet-100 flex flex-col relative overflow-hidden hover:shadow-md hover:border-violet-200 transition-all h-full">
                       
-                      {/* Removed Verified Tick Block Here */}
+                      {/* Note: Verified tick removed as requested previously */}
                       
                       <div className="flex flex-col items-center text-center mb-2 mt-1">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -124,7 +138,7 @@ export default async function Home() {
                         <h3 className="font-bold text-sm text-violet-900 truncate w-full">{app.name}</h3>
                         <span className="text-[10px] font-medium text-violet-400 mb-2">@{app.authorUsername}</span>
                         
-                        {/* UPDATED: Scrollable Description (overflow-y-auto) */}
+                        {/* Scrollable Description */}
                         <p className="text-[10px] text-gray-400 h-8 leading-tight overflow-y-auto no-scrollbar w-full px-1">
                           {app.description}
                         </p>

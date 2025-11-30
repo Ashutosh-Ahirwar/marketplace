@@ -179,7 +179,7 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
 
       {/* Header */}
       <div className="flex justify-between items-center mb-3 px-1">
-        <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Launchpad</h2>
+        <h2 className="text-lg font-extrabold text-violet-950 tracking-tight">Featured Apps</h2>
         <div className="bg-violet-100 text-violet-600 text-[10px] font-bold px-2 py-1 rounded-full">
           {activeIndex + 1} / 6
         </div>
