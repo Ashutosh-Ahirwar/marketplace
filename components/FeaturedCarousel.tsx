@@ -226,7 +226,12 @@ export default function FeaturedCarousel({ featuredApps }: FeaturedCarouselProps
                       <p className="text-violet-200 text-xs font-medium bg-black/20 px-2 py-0.5 rounded-lg inline-block">by @{app.authorUsername}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-violet-100 line-clamp-2 mb-4 leading-relaxed opacity-90">{app.description}</p>
+                  
+                  {/* UPDATED: Scrollable Description for Featured Card */}
+                  <p className="text-xs text-violet-100 h-10 overflow-y-auto no-scrollbar mb-4 leading-relaxed opacity-90 pr-1">
+                    {app.description}
+                  </p>
+
                   <div className="mt-auto z-10" onClick={(e) => e.stopPropagation()}>
                       <OpenAppButton url={app.url} appId={app.id} variant="light" />
                   </div>
